@@ -1,0 +1,18 @@
+{
+  "scripts": {
+    "test": "jest --coverage",
+    "test:unit": "jest --testPathPattern=test/unit",
+    "test:integration": "jest --testPathPattern=test/integration",
+    "test:smoke": "jest --testPathPattern=test/smoke",
+    "test:watch": "jest --watch",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "devDependencies": {
+    "jest": "^29.5.0",
+    "supertest": "^6.3.3",
+    "eslint": "^8.45.0",
+    "@typescript-eslint/eslint-plugin": "^5.62.0",
+    "@typescript-eslint/parser": "^5.62.0"
+  }
+}

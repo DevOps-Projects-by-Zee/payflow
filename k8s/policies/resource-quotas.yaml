@@ -1,0 +1,26 @@
+# ============================================
+# Resource Quotas for PayFlow Namespace
+# ============================================
+# Purpose: Limit total resource consumption per namespace
+# Prevents resource exhaustion and ensures fair resource allocation
+
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: payflow-resource-quota
+  namespace: payflow
+spec:
+  hard:
+    # Compute resources
+    requests.cpu: "4"           # Total CPU requests: 4 cores
+    requests.memory: "8Gi"       # Total memory requests: 8GB
+    limits.cpu: "8"              # Total CPU limits: 8 cores
+    limits.memory: "16Gi"        # Total memory limits: 16GB
+    
+    # Object counts
+    pods: "20"                   # Maximum 20 pods
+    services: "10"               # Maximum 10 services
+    persistentvolumeclaims: "5" # Maximum 5 PVCs
+    secrets: "10"                # Maximum 10 secrets
+    configmaps: "15"             # Maximum 15 configmaps
+

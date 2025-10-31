@@ -1,0 +1,86 @@
+# #### Transaction Timeout Handler - Auto-Reverse Stuck Transactions ####
+# #### This CronJob automatically reverses pending transactions after 1 minute ####
+# #### Mimics real bank behavior of auto-reversing failed/stuck transactions ####
+apiVersion: batch/v1  # #### Kubernetes batch API version ####
+kind: CronJob  # #### Resource type - runs scheduled jobs ####
+metadata:
+  name: transaction-timeout-handler  # #### CronJob name ####
+  namespace: payflow  # #### Namespace ####
+spec:
+  # #### Run every minute ####
+  schedule: "* * * * *"  # #### Cron schedule: every minute ####
+  successfulJobsHistoryLimit: 3  # #### Keep 3 successful jobs ####
+  failedJobsHistoryLimit: 1     # #### Keep 1 failed job ####
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure  # #### Restart if job fails ####
+          containers:
+          - name: transaction-timeout-container
+            image: postgres:15-alpine  # #### Use PostgreSQL client image ####
+            command: ['sh', '-c']
+            args:
+            - |
+              # #### Connect to PostgreSQL ####
+              # #### Reverse pending transactions older than 1 minute ####
+              # #### Using PGDATABASE instead of POSTGRES_DB to avoid conflicts ####
+              psql -h postgres -U $PGUSER -d $PGDATABASE << EOF
+              
+              -- #### Auto-reverse pending transactions older than 1 minute ####
+              -- #### This mimics real bank behavior: stuck transactions are automatically reversed ####
+              UPDATE transactions
+              SET 
+                status = 'FAILED',
+                error_message = 'Transaction timeout - automatically reversed by system (' || NOW() || ')',
+                completed_at = CURRENT_TIMESTAMP,
+                processing_started_at = COALESCE(processing_started_at, created_at)
+              WHERE 
+                status = 'PENDING' 
+                AND created_at < NOW() - INTERVAL '1 minute'
+                AND NOT EXISTS (
+                  SELECT 1 
+                  FROM transactions t2 
+                  WHERE t2.from_user_id = transactions.from_user_id 
+                  AND t2.status = 'COMPLETED' 
+                  AND t2.created_at > transactions.created_at
+                );
+              
+              -- #### Get count of reversed transactions ####
+              SELECT COUNT(*) as reversed_count FROM transactions 
+              WHERE status = 'FAILED' 
+              AND error_message LIKE '%automatically reversed%'
+              AND completed_at > NOW() - INTERVAL '1 minute';
+              
+              EOF
+              
+            env:
+            - name: PGDATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_NAME
+            - name: PGUSER
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: DB_USER
+            - name: PGPASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: DB_PASSWORD
+
+---
+
+# #### Transaction Timeout Handler Service Account ####
+# #### Optional: Create a dedicated service account for the timeout handler ####
+# #### This provides better security isolation ####
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: transaction-timeout-handler
+  namespace: payflow
+  labels:
+    app: transaction-timeout-handler
+

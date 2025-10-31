@@ -1,0 +1,68 @@
+# #### PayFlow API Gateway Service ####
+# #### This Service exposes the API Gateway to other services and external traffic ####
+apiVersion: v1  # #### Kubernetes API version ####
+kind: Service  # #### Resource type - exposes pods to network traffic ####
+metadata:
+  name: api-gateway  # #### Service name ####
+  namespace: payflow  # #### Namespace ####
+spec:
+  type: LoadBalancer  # #### Service type - creates external load balancer ####
+  ports:
+    - port: 80        # #### External port ####
+      targetPort: 3000  # #### Internal container port ####
+  selector:
+    app: api-gateway  # #### Select pods with this label ####
+
+---
+# #### PayFlow API Gateway Deployment ####
+# #### This Deployment manages the API Gateway pods ####
+apiVersion: apps/v1  # #### Kubernetes API version ####
+kind: Deployment  # #### Resource type - manages pod replicas ####
+metadata:
+  name: api-gateway  # #### Deployment name ####
+  namespace: payflow  # #### Namespace ####
+spec:
+  replicas: 2  # #### Number of pod replicas for high availability ####
+  selector:
+    matchLabels:
+      app: api-gateway  # #### Select pods with this label ####
+  template:
+    metadata:
+      labels:
+        app: api-gateway  # #### Pod label ####
+    spec:
+      containers:
+      - name: api-gateway
+        image: payflow/api-gateway:latest  # #### Docker image ####
+        imagePullPolicy: Never  # #### Use local image, don't pull from registry ####
+        ports:
+        - containerPort: 3000  # #### Container port ####
+        env:
+        # #### Environment Variables from ConfigMap ####
+        - name: AUTH_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:  # #### Get value from ConfigMap ####
+              name: app-config
+              key: AUTH_SERVICE_URL
+        - name: WALLET_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: WALLET_SERVICE_URL
+        - name: TRANSACTION_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: TRANSACTION_SERVICE_URL
+        - name: NOTIFICATION_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: NOTIFICATION_SERVICE_URL
+        resources:
+          requests:  # #### Minimum resources required ####
+            memory: "256Mi"  # #### Minimum memory ####
+            cpu: "250m"      # #### Minimum CPU ####
+          limits:  # #### Maximum resources allowed ####
+            memory: "512Mi"  # #### Maximum memory ####
+            cpu: "500m"      # #### Maximum CPU ####

@@ -1,0 +1,86 @@
+# ============================================
+# Grafana Deployment for PayFlow
+# ============================================
+# Purpose: Deploy Grafana for metrics visualization
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+  namespace: monitoring
+  annotations:
+    # For k3d/Rancher: This will expose on the load balancer port
+    cloudflare.com/tunnel: "monitoring-tunnel"  # Connect to Cloudflare tunnel
+spec:
+  type: LoadBalancer  # Get external IP automatically
+  ports:
+    - port: 3000
+      targetPort: 3000
+      name: http
+  selector:
+    app: grafana
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - name: grafana
+          image: grafana/grafana:latest
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            # Configure Grafana admin user
+            - name: GF_SECURITY_ADMIN_USER
+              value: admin
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: admin  # Change in production!
+            # Enable datasource provisioning
+            - name: GF_PATHS_PROVISIONING
+              value: /etc/grafana/provisioning
+            # Load dashboards from ConfigMap
+            - name: GF_PATHS_DASHBOARDS_DEFAULT
+              value: /etc/grafana/dashboards
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 100m
+            limits:
+              memory: 512Mi
+              cpu: 500m
+          volumeMounts:
+            - mountPath: /etc/grafana/provisioning/datasources
+              name: datasources
+              readOnly: true
+            - mountPath: /etc/grafana/provisioning/dashboards
+              name: dashboard-config
+              readOnly: true
+            - mountPath: /var/lib/grafana/dashboards
+              name: dashboard-json
+              readOnly: true
+            - mountPath: /var/lib/grafana
+              name: storage
+      volumes:
+        - name: datasources
+          configMap:
+            name: grafana-datasources
+        - name: dashboard-config
+          configMap:
+            name: grafana-dashboard-provider
+        - name: dashboard-json
+          configMap:
+            name: grafana-dashboards
+        - name: storage
+          emptyDir: {}
+

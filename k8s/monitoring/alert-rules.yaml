@@ -1,0 +1,249 @@
+# ============================================
+# Prometheus Alert Rules for PayFlow
+# ============================================
+# Purpose: Define alerts for infrastructure, performance, and business metrics
+# Alerts trigger when metrics exceed thresholds
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-rules
+  namespace: monitoring
+data:
+  alerts.yml: |
+    # ============================================
+    # CRITICAL ALERTS (Require Immediate Action)
+    # ============================================
+    
+    groups:
+      # #### Group: Service Availability ####
+      - name: service_availability
+        interval: 30s      # Check every 30 seconds
+        rules:
+          # Alert: Service Down
+          # Triggers when a service stops responding
+          - alert: ServiceDown
+            expr: up{job=~".*-service"} == 0  # Service up metric = 0 (down)
+            for: 2m                           # Must be down for 2 minutes
+            labels:
+              severity: critical
+              team: platform
+            annotations:
+              summary: "{{ $labels.job }} is down"
+              description: "Service {{ $labels.job }} has been down for 2 minutes"
+              runbook: "docs/INCIDENT_RESPONSE.md"
+          
+          # Alert: High Pod Restart Rate
+          # Indicates services are crashing frequently
+          - alert: HighPodRestartRate
+            expr: rate(kube_pod_container_status_restarts_total[15m]) > 5
+            for: 5m
+            labels:
+              severity: critical
+              team: platform
+            annotations:
+              summary: "Pod {{ $labels.pod }} restarting frequently"
+              description: "Pod is restarting {{ $value }} times per minute"
+      
+      # #### Group: Error Rate Alerts ####
+      - name: error_rate
+        interval: 30s
+        rules:
+          # Alert: High HTTP Error Rate
+          # Triggers when >5% of requests return 5xx errors
+          - alert: HighErrorRate
+            expr: |
+              rate(http_requests_total{status_code=~"5.."}[5m]) 
+              / 
+              rate(http_requests_total[5m]) > 0.05
+            for: 5m
+            labels:
+              severity: critical
+              team: platform
+            annotations:
+              summary: "High error rate on {{ $labels.route }}"
+              description: "{{ $value | humanize }}% of requests are failing (5xx)"
+          
+          # Alert: Database Connection Errors
+          # Triggers when DB connection failures occur
+          - alert: DatabaseConnectionErrors
+            expr: rate(database_connection_errors_total[5m]) > 10
+            for: 3m
+            labels:
+              severity: critical
+              team: platform
+            annotations:
+              summary: "Database connection errors detected"
+              description: "{{ $value }} connection errors per second"
+      
+      # #### Group: Performance Alerts ####
+      - name: performance
+        interval: 30s
+        rules:
+          # Alert: High Response Time
+          # Triggers when p95 response time exceeds 2 seconds
+          - alert: HighResponseTime
+            expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 2
+            for: 10m
+            labels:
+              severity: warning
+              team: platform
+            annotations:
+              summary: "High response time on {{ $labels.route }}"
+              description: "p95 response time is {{ $value }}s"
+          
+          # Alert: Low Throughput
+          # Triggers when request rate drops below threshold
+          - alert: LowThroughput
+            expr: rate(http_requests_total[5m]) < 10
+            for: 15m
+            labels:
+              severity: warning
+              team: product
+            annotations:
+              summary: "Low request rate detected"
+              description: "Only {{ $value }} requests per second"
+      
+      # #### Group: Resource Alerts ####
+      - name: resources
+        interval: 30s
+        rules:
+          # Alert: High Memory Usage
+          # Triggers when pod memory > 80%
+          - alert: HighMemoryUsage
+            expr: |
+              (container_memory_usage_bytes / container_spec_memory_limit_bytes) > 0.8
+            for: 5m
+            labels:
+              severity: warning
+              team: platform
+            annotations:
+              summary: "High memory usage on {{ $labels.pod }}"
+              description: "Memory usage is {{ $value | humanize }}%"
+          
+          # Alert: High CPU Usage
+          # Triggers when pod CPU > 80%
+          - alert: HighCPUUsage
+            expr: |
+              (rate(container_cpu_usage_seconds_total[5m]) * 100) > 80
+            for: 5m
+            labels:
+              severity: warning
+              team: platform
+            annotations:
+              summary: "High CPU usage on {{ $labels.pod }}"
+              description: "CPU usage is {{ $value }}%"
+          
+          # Alert: Disk Space Low
+          # Triggers when disk < 20% free
+          - alert: LowDiskSpace
+            expr: (node_filesystem_avail_bytes / node_filesystem_size_bytes) < 0.2
+            for: 5m
+            labels:
+              severity: critical
+              team: platform
+            annotations:
+              summary: "Low disk space on {{ $labels.instance }}"
+              description: "Only {{ $value | humanize }}% disk space remaining"
+      
+      # ============================================
+      # BUSINESS METRICS ALERTS
+      # ============================================
+      
+      # #### Group: Transaction Alerts ####
+      - name: transactions
+        interval: 30s
+        rules:
+          # Alert: Transaction Failure Rate
+          # Triggers when >2% of transactions fail
+          - alert: HighTransactionFailureRate
+            expr: |
+              rate(transactions_total{status="failed"}[5m]) 
+              / 
+              rate(transactions_total[5m]) > 0.02
+            for: 5m
+            labels:
+              severity: critical
+              team: product
+            annotations:
+              summary: "High transaction failure rate"
+              description: "{{ $value | humanize }}% of transactions are failing"
+          
+          # Alert: Transaction Queue Backlog
+          # Triggers when queue has >100 pending transactions
+          - alert: TransactionQueueBacklog
+            expr: rabbitmq_queue_messages_ready{queue="transactions"} > 100
+            for: 10m
+            labels:
+              severity: warning
+              team: product
+            annotations:
+              summary: "Transaction queue backing up"
+              description: "{{ $value }} pending transactions in queue"
+          
+          # Alert: Slow Transaction Processing
+          # Triggers when transactions take >10 seconds
+          - alert: SlowTransactionProcessing
+            expr: histogram_quantile(0.95, rate(transaction_duration_seconds_bucket[5m])) > 10
+            for: 10m
+            labels:
+              severity: warning
+              team: product
+            annotations:
+              summary: "Slow transaction processing"
+              description: "p95 transaction time is {{ $value }}s"
+      
+      # #### Group: User Activity Alerts ####
+      - name: user_activity
+        interval: 30s
+        rules:
+          # Alert: Low User Registrations
+          # Triggers when <5 users register per hour
+          - alert: LowUserRegistrations
+            expr: rate(user_signups_total[1h]) < 5
+            for: 2h
+            labels:
+              severity: warning
+              team: product
+            annotations:
+              summary: "Low user registration rate"
+              description: "Only {{ $value }} registrations per hour"
+          
+          # Alert: Failed Login Attempts
+          # Triggers when >50 failed logins per minute
+          - alert: HighFailedLoginAttempts
+            expr: rate(auth_failed_login_attempts_total[1m]) > 50
+            for: 5m
+            labels:
+              severity: critical
+              team: security
+            annotations:
+              summary: "Possible brute force attack"
+              description: "{{ $value }} failed login attempts per minute"
+      
+      # #### Group: Financial Alerts ####
+      - name: financial
+        interval: 30s
+        rules:
+          # Alert: High Transaction Volume
+          # Triggers when transaction volume exceeds 10,000/hour
+          - alert: HighTransactionVolume
+            expr: sum(increase(transactions_total[1h])) > 10000
+            for: 5m
+            labels:
+              severity: info
+              team: product
+            annotations:
+              summary: "High transaction volume"
+              description: "{{ $value }} transactions in the last hour"
+          
+          # Alert: Wallet Balance Anomaly
+          # Triggers when unusual wallet balance patterns detected
+          - alert: WalletBalanceAnomaly
+            expr: wallet_balance_delta > 10000
+            for: 1m
+            labels:
+              severity: warning
+              team: security
+            annotations:
+              summary: "Unusual wallet balance change"
+              description: "Balance changed by ${{ $value }}"

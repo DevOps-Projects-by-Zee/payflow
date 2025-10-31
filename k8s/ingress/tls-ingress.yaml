@@ -1,0 +1,60 @@
+# #### Let's Encrypt Certificate Issuer ####
+# #### This ClusterIssuer automatically provisions SSL certificates ####
+# #### cert-manager will handle certificate renewal automatically ####
+apiVersion: cert-manager.io/v1  # #### cert-manager API version ####
+kind: ClusterIssuer  # #### Resource type - issues certificates cluster-wide ####
+metadata:
+  name: letsencrypt-prod  # #### Issuer name ####
+spec:
+  acme:  # #### ACME (Automatic Certificate Management Environment) ####
+    server: https://acme-v02.api.letsencrypt.org/directory  # #### Let's Encrypt production server ####
+    email: admin@payflow.local  # #### Email for certificate notifications ####
+    privateKeySecretRef:
+      name: letsencrypt-prod  # #### Secret to store private key ####
+    solvers:
+    - http01:  # #### HTTP-01 challenge method ####
+        ingress:
+          class: nginx  # #### Use nginx ingress class ####
+
+---
+# #### PayFlow Ingress with TLS ####
+# #### This Ingress routes external traffic to internal services ####
+# #### Provides HTTPS termination and SSL certificate management ####
+apiVersion: networking.k8s.io/v1  # #### Kubernetes networking API ####
+kind: Ingress  # #### Resource type - manages external access ####
+metadata:
+  name: payflow-ingress  # #### Ingress name ####
+  namespace: payflow  # #### Namespace ####
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"  # #### Use our certificate issuer ####
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"  # #### Redirect HTTP to HTTPS ####
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"  # #### Force HTTPS ####
+    nginx.ingress.kubernetes.io/rate-limit: "100"  # #### Rate limit: 100 requests per minute ####
+spec:
+  ingressClassName: nginx  # #### Use nginx ingress controller ####
+  tls:  # #### TLS configuration ####
+  - hosts:
+    - api.payflow.local  # #### API subdomain ####
+    - www.payflow.local  # #### Main website ####
+    secretName: payflow-tls  # #### Secret to store certificate ####
+  rules:  # #### Routing rules ####
+  - host: api.payflow.local  # #### API subdomain ####
+    http:
+      paths:
+      - path: /
+        pathType: Prefix  # #### Match all paths starting with / ####
+        backend:
+          service:
+            name: api-gateway  # #### Route to API Gateway service ####
+            port:
+              number: 3000  # #### Service port ####
+  - host: www.payflow.local  # #### Main website ####
+    http:
+      paths:
+      - path: /
+        pathType: Prefix  # #### Match all paths starting with / ####
+        backend:
+          service:
+            name: frontend  # #### Route to Frontend service ####
+            port:
+              number: 80  # #### Service port ####

@@ -1,0 +1,164 @@
+# ============================================
+# Prometheus Configuration for PayFlow
+# ============================================
+# Purpose: Configure Prometheus to scrape metrics from all PayFlow services
+# Metrics Scraped: HTTP requests, business metrics, infrastructure health
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: prometheus-config
+  namespace: monitoring
+data:
+  prometheus.yml: |
+    # #### Global Prometheus Configuration ####
+    global:
+      scrape_interval: 15s          # How often to scrape metrics (15 seconds)
+      evaluation_interval: 15s      # How often to evaluate alert rules
+      external_labels:               # Labels added to all metrics
+        cluster: 'payflow'
+        environment: 'production'
+    
+    # ============================================
+    # SCRAPE CONFIGURATIONS
+    # ============================================
+    # Define which services to scrape metrics from
+    
+    scrape_configs:
+      
+      # #### API Gateway Metrics ####
+      # Scrapes HTTP metrics, request rates, error rates
+      - job_name: 'api-gateway'
+        kubernetes_sd_configs:      # Discover pods automatically in Kubernetes
+          - role: pod                # Use pods as targets
+            namespaces:
+              names: ['payflow']    # Only scan payflow namespace
+        relabel_configs:
+          # Only scrape pods labeled with app=api-gateway
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: api-gateway
+            action: keep
+          # Use pod IP and port 3000 as target address
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: ${1}:3000
+        metrics_path: '/metrics'   # Prometheus endpoint
+      
+      # #### Auth Service Metrics ####
+      # Scrapes authentication metrics, login rates
+      - job_name: 'auth-service'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ['payflow']
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: auth-service
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: ${1}:3004
+      
+      # #### Wallet Service Metrics ####
+      # Scrapes wallet balance metrics, transfer operations
+      - job_name: 'wallet-service'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ['payflow']
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: wallet-service
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: ${1}:3001
+      
+      # #### Transaction Service Metrics ####
+      # Scrapes transaction processing metrics, queue depth
+      - job_name: 'transaction-service'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ['payflow']
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: transaction-service
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: ${1}:3002
+      
+      # #### Notification Service Metrics ####
+      # Scrapes notification sending metrics
+      - job_name: 'notification-service'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ['payflow']
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: notification-service
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: ${1}:3003
+      
+      # #### PostgreSQL Database Metrics ####
+      # Scrapes database connection, query performance metrics
+      - job_name: 'postgres'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ['payflow']
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: postgres
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: ${1}:5432
+      
+      # #### Redis Cache Metrics ####
+      # Scrapes cache hit/miss rates, connection metrics
+      - job_name: 'redis'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ['payflow']
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: redis
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: ${1}:6379
+      
+      # #### RabbitMQ Metrics ####
+      # Scrapes message queue depth, processing rates
+      - job_name: 'rabbitmq'
+        kubernetes_sd_configs:
+          - role: pod
+            namespaces:
+              names: ['payflow']
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_app]
+            regex: rabbitmq
+            action: keep
+          - source_labels: [__meta_kubernetes_pod_ip]
+            target_label: __address__
+            replacement: ${1}:15672
+    
+    # ============================================
+    # ALERT MANAGER CONFIGURATION
+    # ============================================
+    alerting:
+      alertmanagers:
+        - static_configs:
+            - targets: ['alertmanager:9093']  # Where to send alerts
+    
+    # ============================================
+    # RULE FILES
+    # ============================================
+    # Load alert rules from ConfigMap
+    rule_files:
+      - '/etc/prometheus/rules/*.yml'

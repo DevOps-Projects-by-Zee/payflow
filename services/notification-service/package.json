@@ -1,0 +1,28 @@
+{
+  "name": "payflow-notification-service",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "amqplib": "^0.10.3",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-validator": "^7.3.0",
+    "helmet": "^7.1.0",
+    "morgan": "^1.10.0",
+    "nodemailer": "^6.9.7",
+    "pg": "^8.11.3",
+    "prom-client": "^15.1.0",
+    "twilio": "^4.20.0",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "eslint": "^8.56.0",
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.2",
+    "supertest": "^6.3.3"
+  }
+}

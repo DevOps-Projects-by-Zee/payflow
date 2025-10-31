@@ -1,0 +1,34 @@
+# ============================================
+# ArgoCD Application - PayFlow GitOps
+# ============================================
+# Purpose: ArgoCD watches the k8s/ directory and auto-syncs
+# When you commit changes, ArgoCD will deploy them
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: payflow
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/yourusername/PayFlow.git  # REPLACE WITH YOUR REPO
+    targetRevision: HEAD
+    path: k8s
+    kustomize:
+      namespace: payflow
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: payflow
+  syncPolicy:
+    automated:
+      prune: true  # Delete resources removed from Git
+      selfHeal: true  # Auto-sync if drift detected
+      allowEmpty: false
+    syncOptions:
+    - CreateNamespace=true
+    - PrunePropagationPolicy=foreground
+    - PruneLast=true
+

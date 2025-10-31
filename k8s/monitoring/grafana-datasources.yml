@@ -1,0 +1,23 @@
+# ============================================
+# Grafana Data Sources Configuration
+# ============================================
+# Purpose: Configure data sources for Grafana to connect to Prometheus
+# This allows Grafana to query Prometheus for metrics visualization
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-datasources
+  namespace: monitoring
+data:
+  datasource.yml: |
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        access: proxy
+        url: http://prometheus:9090
+        isDefault: true
+        editable: true
+        jsonData:
+          timeInterval: "15s"
+          queryTimeout: "60s"
+          httpMethod: "POST"

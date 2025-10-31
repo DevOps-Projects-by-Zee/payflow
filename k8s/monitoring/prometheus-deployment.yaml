@@ -1,0 +1,66 @@
+# ============================================
+# Prometheus Deployment for PayFlow
+# ============================================
+# Purpose: Deploy Prometheus to collect and store metrics
+apiVersion: v1
+kind: Service
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  type: LoadBalancer  # Expose on external IP for access
+  ports:
+    - port: 9090
+      targetPort: 9090
+      name: http
+  selector:
+    app: prometheus
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: prometheus
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+    spec:
+      containers:
+        - name: prometheus
+          image: prom/prometheus:latest
+          ports:
+            - containerPort: 9090
+              name: http
+          args:
+            - '--config.file=/etc/prometheus/prometheus.yml'
+            - '--storage.tsdb.path=/prometheus'
+            - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+            - '--web.console.templates=/usr/share/prometheus/consoles'
+            - '--storage.tsdb.retention.time=30d'  # Keep metrics for 30 days
+          resources:
+            requests:
+              memory: 512Mi
+              cpu: 250m
+            limits:
+              memory: 1Gi
+              cpu: 500m
+          volumeMounts:
+            - mountPath: /etc/prometheus
+              name: config
+            - mountPath: /prometheus
+              name: storage
+      volumes:
+        - name: config
+          configMap:
+            name: prometheus-config
+        - name: storage
+          emptyDir: {}
+  strategy:
+    type: Recreate  # Don't roll updates, just recreate
+

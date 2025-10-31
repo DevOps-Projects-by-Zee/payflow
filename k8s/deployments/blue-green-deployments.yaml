@@ -1,0 +1,937 @@
+# Blue-Green Deployment Manifests for PayFlow
+
+## 🚀 **API Gateway Blue-Green Deployment**
+
+```yaml
+# k8s/deployments/api-gateway-blue-green.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway-blue
+  namespace: payflow
+  labels:
+    app: api-gateway
+    version: blue
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: api-gateway
+      version: blue
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+        version: blue
+    spec:
+      containers:
+      - name: api-gateway
+        image: payflow/api-gateway:blue
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3000"
+        - name: AUTH_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: AUTH_SERVICE_URL
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway-green
+  namespace: payflow
+  labels:
+    app: api-gateway
+    version: green
+spec:
+  replicas: 0  # Start with 0 replicas
+  selector:
+    matchLabels:
+      app: api-gateway
+      version: green
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+        version: green
+    spec:
+      containers:
+      - name: api-gateway
+        image: payflow/api-gateway:green
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3000"
+        - name: AUTH_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: AUTH_SERVICE_URL
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway-service
+  namespace: payflow
+spec:
+  selector:
+    app: api-gateway
+    version: blue  # Default to blue
+  ports:
+  - port: 3000
+    targetPort: 3000
+    protocol: TCP
+  type: ClusterIP
+```
+
+## 💰 **Wallet Service Blue-Green Deployment**
+
+```yaml
+# k8s/deployments/wallet-service-blue-green.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wallet-service-blue
+  namespace: payflow
+  labels:
+    app: wallet-service
+    version: blue
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: wallet-service
+      version: blue
+  template:
+    metadata:
+      labels:
+        app: wallet-service
+        version: blue
+    spec:
+      containers:
+      - name: wallet-service
+        image: payflow/wallet-service:blue
+        ports:
+        - containerPort: 3002
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3002"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DATABASE_URL
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: REDIS_URL
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3002
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3002
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wallet-service-green
+  namespace: payflow
+  labels:
+    app: wallet-service
+    version: green
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: wallet-service
+      version: green
+  template:
+    metadata:
+      labels:
+        app: wallet-service
+        version: green
+    spec:
+      containers:
+      - name: wallet-service
+        image: payflow/wallet-service:green
+        ports:
+        - containerPort: 3002
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3002"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DATABASE_URL
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: REDIS_URL
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3002
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3002
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: wallet-service-service
+  namespace: payflow
+spec:
+  selector:
+    app: wallet-service
+    version: blue
+  ports:
+  - port: 3002
+    targetPort: 3002
+    protocol: TCP
+  type: ClusterIP
+```
+
+## 🔐 **Auth Service Blue-Green Deployment**
+
+```yaml
+# k8s/deployments/auth-service-blue-green.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service-blue
+  namespace: payflow
+  labels:
+    app: auth-service
+    version: blue
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: auth-service
+      version: blue
+  template:
+    metadata:
+      labels:
+        app: auth-service
+        version: blue
+    spec:
+      containers:
+      - name: auth-service
+        image: payflow/auth-service:blue
+        ports:
+        - containerPort: 3001
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3001"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DATABASE_URL
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: REDIS_URL
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: JWT_SECRET
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service-green
+  namespace: payflow
+  labels:
+    app: auth-service
+    version: green
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: auth-service
+      version: green
+  template:
+    metadata:
+      labels:
+        app: auth-service
+        version: green
+    spec:
+      containers:
+      - name: auth-service
+        image: payflow/auth-service:green
+        ports:
+        - containerPort: 3001
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3001"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DATABASE_URL
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: REDIS_URL
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: JWT_SECRET
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3001
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service-service
+  namespace: payflow
+spec:
+  selector:
+    app: auth-service
+    version: blue
+  ports:
+  - port: 3001
+    targetPort: 3001
+    protocol: TCP
+  type: ClusterIP
+```
+
+## 💸 **Transaction Service Blue-Green Deployment**
+
+```yaml
+# k8s/deployments/transaction-service-blue-green.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transaction-service-blue
+  namespace: payflow
+  labels:
+    app: transaction-service
+    version: blue
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: transaction-service
+      version: blue
+  template:
+    metadata:
+      labels:
+        app: transaction-service
+        version: blue
+    spec:
+      containers:
+      - name: transaction-service
+        image: payflow/transaction-service:blue
+        ports:
+        - containerPort: 3003
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3003"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DATABASE_URL
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: REDIS_URL
+        - name: RABBITMQ_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: RABBITMQ_URL
+        - name: WALLET_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: WALLET_SERVICE_URL
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3003
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3003
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: transaction-service-green
+  namespace: payflow
+  labels:
+    app: transaction-service
+    version: green
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: transaction-service
+      version: green
+  template:
+    metadata:
+      labels:
+        app: transaction-service
+        version: green
+    spec:
+      containers:
+      - name: transaction-service
+        image: payflow/transaction-service:green
+        ports:
+        - containerPort: 3003
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3003"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DATABASE_URL
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: REDIS_URL
+        - name: RABBITMQ_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: RABBITMQ_URL
+        - name: WALLET_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: WALLET_SERVICE_URL
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3003
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3003
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: transaction-service-service
+  namespace: payflow
+spec:
+  selector:
+    app: transaction-service
+    version: blue
+  ports:
+  - port: 3003
+    targetPort: 3003
+    protocol: TCP
+  type: ClusterIP
+```
+
+## 📧 **Notification Service Blue-Green Deployment**
+
+```yaml
+# k8s/deployments/notification-service-blue-green.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service-blue
+  namespace: payflow
+  labels:
+    app: notification-service
+    version: blue
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: notification-service
+      version: blue
+  template:
+    metadata:
+      labels:
+        app: notification-service
+        version: blue
+    spec:
+      containers:
+      - name: notification-service
+        image: payflow/notification-service:blue
+        ports:
+        - containerPort: 3004
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3004"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DATABASE_URL
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: REDIS_URL
+        - name: RABBITMQ_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: RABBITMQ_URL
+        - name: SMTP_HOST
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: SMTP_HOST
+        - name: SMTP_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: SMTP_USER
+        - name: SMTP_PASS
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: SMTP_PASS
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3004
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3004
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service-green
+  namespace: payflow
+  labels:
+    app: notification-service
+    version: green
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: notification-service
+      version: green
+  template:
+    metadata:
+      labels:
+        app: notification-service
+        version: green
+    spec:
+      containers:
+      - name: notification-service
+        image: payflow/notification-service:green
+        ports:
+        - containerPort: 3004
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3004"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DATABASE_URL
+        - name: REDIS_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: REDIS_URL
+        - name: RABBITMQ_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: RABBITMQ_URL
+        - name: SMTP_HOST
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: SMTP_HOST
+        - name: SMTP_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: SMTP_USER
+        - name: SMTP_PASS
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: SMTP_PASS
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3004
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3004
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service-service
+  namespace: payflow
+spec:
+  selector:
+    app: notification-service
+    version: blue
+  ports:
+  - port: 3004
+    targetPort: 3004
+    protocol: TCP
+  type: ClusterIP
+```
+
+## 🌐 **Frontend Blue-Green Deployment**
+
+```yaml
+# k8s/deployments/frontend-blue-green.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-blue
+  namespace: payflow
+  labels:
+    app: frontend
+    version: blue
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: frontend
+      version: blue
+  template:
+    metadata:
+      labels:
+        app: frontend
+        version: blue
+    spec:
+      containers:
+      - name: frontend
+        image: payflow/frontend:blue
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend-green
+  namespace: payflow
+  labels:
+    app: frontend
+    version: green
+spec:
+  replicas: 0
+  selector:
+    matchLabels:
+      app: frontend
+      version: green
+  template:
+    metadata:
+      labels:
+        app: frontend
+        version: green
+    spec:
+      containers:
+      - name: frontend
+        image: payflow/frontend:green
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 80
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-service
+  namespace: payflow
+spec:
+  selector:
+    app: frontend
+    version: blue
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+  type: ClusterIP
+```
+
+## 🚀 **Usage Instructions**
+
+### **Deploy Blue-Green Services**
+```bash
+# Deploy all blue-green services
+kubectl apply -f k8s/deployments/api-gateway-blue-green.yaml
+kubectl apply -f k8s/deployments/auth-service-blue-green.yaml
+kubectl apply -f k8s/deployments/wallet-service-blue-green.yaml
+kubectl apply -f k8s/deployments/transaction-service-blue-green.yaml
+kubectl apply -f k8s/deployments/notification-service-blue-green.yaml
+kubectl apply -f k8s/deployments/frontend-blue-green.yaml
+```
+
+### **Blue-Green Deployment Commands**
+```bash
+# Deploy new version using blue-green
+./scripts/blue-green-deploy.sh api-gateway v1.2.3
+./scripts/blue-green-deploy.sh wallet-service v2.1.0
+./scripts/blue-green-deploy.sh auth-service v1.5.0
+
+# Or use Make commands
+make blue-green-deploy SERVICE=api-gateway VERSION=v1.2.3
+make blue-green-deploy SERVICE=wallet-service VERSION=v2.1.0
+```
+
+### **Manual Traffic Switching**
+```bash
+# Switch traffic to green
+kubectl patch service api-gateway-service -n payflow -p '{"spec":{"selector":{"version":"green"}}}'
+
+# Switch back to blue (rollback)
+kubectl patch service api-gateway-service -n payflow -p '{"spec":{"selector":{"version":"blue"}}}'
+```
+
+### **Monitor Deployments**
+```bash
+# Check blue-green status
+kubectl get deployments -n payflow -l app=api-gateway
+kubectl get pods -n payflow -l app=api-gateway
+
+# Check service routing
+kubectl get service api-gateway-service -n payflow -o yaml
+```
+
+## 🎯 **Benefits for PayFlow**
+
+### **Zero-Downtime Deployments**
+- ✅ **Financial transactions continue** during deployments
+- ✅ **User experience uninterrupted** 
+- ✅ **Compliance requirements met** (uptime SLA)
+
+### **Instant Rollback**
+- ✅ **Switch back to blue** if issues detected
+- ✅ **Minimal impact** on users
+- ✅ **Quick recovery** from deployment failures
+
+### **Full Testing**
+- ✅ **Test green environment** before traffic switch
+- ✅ **Smoke tests** on new version
+- ✅ **Confidence in deployment** before going live
+
+### **Risk Mitigation**
+- ✅ **Blue environment** remains as backup
+- ✅ **Gradual traffic switch** possible
+- ✅ **Monitoring** during deployment process

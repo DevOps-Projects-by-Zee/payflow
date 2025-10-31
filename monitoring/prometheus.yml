@@ -1,0 +1,53 @@
+# #### Prometheus Configuration ####
+# #### This file configures Prometheus to scrape metrics from PayFlow services ####
+
+# #### Global Configuration ####
+# #### These settings apply to all scrape jobs ####
+global:
+  scrape_interval: 15s    # #### How often to scrape metrics from each target ####
+  evaluation_interval: 15s # #### How often to evaluate alert rules ####
+
+# #### Scrape Configurations ####
+# #### Define which services to monitor and how ####
+scrape_configs:
+  # #### API Gateway Metrics ####
+  # #### Scrapes metrics from the main API gateway ####
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets: ['api-gateway:3000']  # #### Service name and port ####
+  
+  # #### Wallet Service Metrics ####
+  # #### Scrapes metrics from the wallet service ####
+  - job_name: 'wallet-service'
+    static_configs:
+      - targets: ['wallet-service:3001']  # #### Service name and port ####
+  
+  # #### Transaction Service Metrics ####
+  # #### Scrapes metrics from the transaction service ####
+  - job_name: 'transaction-service'
+    static_configs:
+      - targets: ['transaction-service:3002']  # #### Service name and port ####
+  
+  # #### Auth Service Metrics ####
+  # #### Scrapes metrics from the authentication service ####
+  - job_name: 'auth-service'
+    static_configs:
+      - targets: ['auth-service:3004']  # #### Service name and port ####
+  
+  # #### Notification Service Metrics ####
+  # #### Scrapes metrics from the notification service ####
+  - job_name: 'notification-service'
+    static_configs:
+      - targets: ['notification-service:3003']  # #### Service name and port ####
+
+# #### Alerting Configuration ####
+# #### Configure where to send alerts ####
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']  # #### AlertManager service and port ####
+
+# #### Alert Rules ####
+# #### Define alert rules and thresholds ####
+rule_files:
+  - '/etc/prometheus/alerts.yml'  # #### Path to alert rules file ####

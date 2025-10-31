@@ -1,0 +1,72 @@
+# ============================================
+# PodDisruptionBudgets for PayFlow Services
+# ============================================
+# Purpose: Ensure high availability during voluntary disruptions (upgrades, node maintenance)
+# Ensures minimum available pods during rolling updates and node drains
+
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: api-gateway-pdb
+  namespace: payflow
+spec:
+  minAvailable: 1  # At least 1 pod must be available
+  selector:
+    matchLabels:
+      app: api-gateway
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: auth-service-pdb
+  namespace: payflow
+spec:
+  minAvailable: 1  # At least 1 pod must be available
+  selector:
+    matchLabels:
+      app: auth-service
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: wallet-service-pdb
+  namespace: payflow
+spec:
+  minAvailable: 1  # At least 1 pod must be available
+  selector:
+    matchLabels:
+      app: wallet-service
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: transaction-service-pdb
+  namespace: payflow
+spec:
+  minAvailable: 2  # At least 2 pods must be available (critical service)
+  selector:
+    matchLabels:
+      app: transaction-service
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: notification-service-pdb
+  namespace: payflow
+spec:
+  minAvailable: 1  # At least 1 pod must be available
+  selector:
+    matchLabels:
+      app: notification-service
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: frontend-pdb
+  namespace: payflow
+spec:
+  minAvailable: 1  # At least 1 pod must be available
+  selector:
+    matchLabels:
+      app: frontend
+

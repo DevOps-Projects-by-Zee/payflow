@@ -1,0 +1,10 @@
+# #### Monitoring Namespace ####
+# #### This namespace isolates monitoring components ####
+apiVersion: v1  # #### Kubernetes API version ####
+kind: Namespace  # #### Resource type - creates a namespace ####
+metadata:
+  name: monitoring  # #### Namespace name ####
+  labels:
+    name: monitoring  # #### Namespace label ####
+    purpose: observability  # #### Purpose label ####
+

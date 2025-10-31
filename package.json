@@ -1,0 +1,41 @@
+{
+  "name": "payflow",
+  "version": "1.0.0",
+  "description": "Production-ready fintech microservices platform",
+  "scripts": {
+    "install:all": "npm run install:services && npm run install:frontend",
+    "install:services": "cd services/auth-service && npm install && cd ../api-gateway && npm install && cd ../wallet-service && npm install && cd ../transaction-service && npm install && cd ../notification-service && npm install",
+    "install:frontend": "cd services/frontend && npm install",
+    
+    "dev:auth": "cd services/auth-service && npm run dev",
+    "dev:gateway": "cd services/api-gateway && npm run dev",
+    "dev:wallet": "cd services/wallet-service && npm run dev",
+    "dev:transaction": "cd services/transaction-service && npm run dev",
+    "dev:notification": "cd services/notification-service && npm run dev",
+    "dev:frontend": "cd services/frontend && npm start",
+    
+    "test:all": "npm run test:services",
+    "test:services": "cd services/auth-service && npm test && cd ../api-gateway && npm test && cd ../wallet-service && npm test && cd ../transaction-service && npm test && cd ../notification-service && npm test",
+    
+    "lint:all": "npm run lint:services",
+    "lint:services": "cd services/auth-service && npm run lint && cd ../api-gateway && npm run lint && cd ../wallet-service && npm run lint && cd ../transaction-service && npm run lint && cd ../notification-service && npm run lint",
+    
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    
+    "k8s:deploy": "kubectl apply -f k8s/",
+    "k8s:delete": "kubectl delete -f k8s/",
+    "k8s:status": "kubectl get all -n payflow"
+  },
+  "keywords": [
+    "fintech",
+    "microservices",
+    "kubernetes",
+    "nodejs",
+    "digital-wallet"
+  ],
+  "author": "PayFlow Team",
+  "license": "MIT"
+}

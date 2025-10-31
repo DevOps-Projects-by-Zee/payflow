@@ -1,0 +1,78 @@
+# ============================================
+# Container Image Scanning CronJob (Trivy)
+# ============================================
+# Purpose: Automated security scanning of container images
+# Scans images daily and reports vulnerabilities
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: image-scanning
+  namespace: payflow
+spec:
+  schedule: "0 3 * * *"  # Daily at 3 AM UTC
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: trivy-scanner
+            image: aquasec/trivy:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "Starting image vulnerability scan..."
+              
+              # List of images to scan
+              IMAGES=(
+                "payflow/api-gateway:latest"
+                "payflow/auth-service:latest"
+                "payflow/wallet-service:latest"
+                "payflow/transaction-service:latest"
+                "payflow/notification-service:latest"
+                "payflow/frontend:latest"
+              )
+              
+              # Create report directory
+              mkdir -p /reports
+              
+              # Scan each image
+              for IMAGE in "${IMAGES[@]}"; do
+                echo "Scanning $IMAGE..."
+                REPORT_FILE="/reports/$(echo $IMAGE | tr '/:' '-')-$(date +%Y%m%d).json"
+                
+                # Run Trivy scan
+                trivy image \
+                  --format json \
+                  --output "$REPORT_FILE" \
+                  --severity HIGH,CRITICAL \
+                  "$IMAGE" || true  # Continue even if scan fails
+                
+                # Generate summary
+                if [ -f "$REPORT_FILE" ]; then
+                  VULNS=$(jq '[.Results[]?.Vulnerabilities[]?] | length' "$REPORT_FILE" 2>/dev/null || echo "0")
+                  echo "Found $VULNS vulnerabilities in $IMAGE"
+                fi
+              done
+              
+              echo "Scan complete. Reports saved to /reports"
+              
+              # Note: In production, upload reports to S3, send alerts via Slack/email, etc.
+            volumeMounts:
+            - name: docker-socket
+              mountPath: /var/run/docker.sock
+            - name: reports
+              mountPath: /reports
+          volumes:
+          - name: docker-socket
+            hostPath:
+              path: /var/run/docker.sock
+              type: Socket
+          - name: reports
+            emptyDir: {}
+

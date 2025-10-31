@@ -1,0 +1,112 @@
+groups:
+  - name: payflow-alerts
+    rules:
+      # Service Health Alerts
+      - alert: ServiceDown
+        expr: up{job=~"api-gateway|auth-service|wallet-service|transaction-service|notification-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is down"
+          description: "Service {{ $labels.job }} has been down for more than 1 minute"
+
+      # High Error Rate
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{job=~"api-gateway|auth-service|wallet-service|transaction-service|notification-service",code=~"5.."}[5m]) > 0.1
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate for {{ $labels.job }}"
+          description: "Error rate for {{ $labels.job }} is {{ $value }} errors per second"
+
+      # High Response Time
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket{job=~"api-gateway|auth-service|wallet-service|transaction-service|notification-service"}[5m])) > 1
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time for {{ $labels.job }}"
+          description: "95th percentile response time for {{ $labels.job }} is {{ $value }} seconds"
+
+      # High Memory Usage
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes{job=~"api-gateway|auth-service|wallet-service|transaction-service|notification-service"} > 500 * 1024 * 1024
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage for {{ $labels.job }}"
+          description: "Memory usage for {{ $labels.job }} is {{ $value | humanize1024 }}B"
+
+      # High CPU Usage
+      - alert: HighCPUUsage
+        expr: rate(process_cpu_seconds_total{job=~"api-gateway|auth-service|wallet-service|transaction-service|notification-service"}[5m]) * 100 > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage for {{ $labels.job }}"
+          description: "CPU usage for {{ $labels.job }} is {{ $value }}%"
+
+      # Database Connection Issues
+      - alert: DatabaseDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL database is down"
+          description: "PostgreSQL database has been down for more than 1 minute"
+
+      # Redis Connection Issues
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is down"
+          description: "Redis has been down for more than 1 minute"
+
+      # RabbitMQ Connection Issues
+      - alert: RabbitMQDown
+        expr: up{job="rabbitmq"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "RabbitMQ is down"
+          description: "RabbitMQ has been down for more than 1 minute"
+
+      # Transaction Failure Rate
+      - alert: HighTransactionFailureRate
+        expr: rate(payflow_transactions_total{status="failed"}[5m]) / rate(payflow_transactions_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High transaction failure rate"
+          description: "Transaction failure rate is {{ $value | humanizePercentage }}"
+
+      # Circuit Breaker Open
+      - alert: CircuitBreakerOpen
+        expr: payflow_circuit_breaker_state{state="open"} == 1
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Circuit breaker is open for {{ $labels.service }}"
+          description: "Circuit breaker for {{ $labels.service }} has been open for more than 1 minute"
+
+      # Low Success Rate
+      - alert: LowSuccessRate
+        expr: rate(http_requests_total{job=~"api-gateway|auth-service|wallet-service|transaction-service|notification-service",code!~"5.."}[5m]) / rate(http_requests_total{job=~"api-gateway|auth-service|wallet-service|transaction-service|notification-service"}[5m]) < 0.95
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low success rate for {{ $labels.job }}"
+          description: "Success rate for {{ $labels.job }} is {{ $value | humanizePercentage }}"

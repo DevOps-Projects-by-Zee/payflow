@@ -1,0 +1,68 @@
+# #### PostgreSQL Database Service ####
+# #### This Service exposes PostgreSQL to other services ####
+apiVersion: v1  # #### Kubernetes API version ####
+kind: Service  # #### Resource type - exposes pods to network traffic ####
+metadata:
+  name: postgres  # #### Service name ####
+  namespace: payflow  # #### Namespace ####
+spec:
+  ports:
+    - port: 5432  # #### PostgreSQL default port ####
+  selector:
+    app: postgres  # #### Select pods with this label ####
+  clusterIP: None  # #### Headless service - no cluster IP ####
+
+---
+# #### PostgreSQL StatefulSet ####
+# #### StatefulSets provide stable network identity and persistent storage ####
+# #### Perfect for databases that need consistent identity ####
+apiVersion: apps/v1  # #### Kubernetes API version ####
+kind: StatefulSet  # #### Resource type - manages stateful applications ####
+metadata:
+  name: postgres  # #### StatefulSet name ####
+  namespace: payflow  # #### Namespace ####
+spec:
+  serviceName: postgres  # #### Service name for stable network identity ####
+  replicas: 1  # #### Number of replicas (databases usually run as single instance) ####
+  selector:
+    matchLabels:
+      app: postgres  # #### Select pods with this label ####
+  template:
+    metadata:
+      labels:
+        app: postgres  # #### Pod label ####
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine  # #### PostgreSQL 15 with Alpine Linux ####
+        imagePullPolicy: IfNotPresent  # #### Pull if not present locally ####
+        ports:
+        - containerPort: 5432  # #### Container port ####
+        env:
+        # #### Database Configuration ####
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:  # #### Get database name from ConfigMap ####
+              name: app-config
+              key: DB_NAME
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:  # #### Get username from Secret ####
+              name: db-secrets
+              key: DB_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:  # #### Get password from Secret ####
+              name: db-secrets
+              key: DB_PASSWORD
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data  # #### Mount persistent storage ####
+  volumeClaimTemplates:  # #### Template for creating persistent volumes ####
+  - metadata:
+      name: postgres-storage
+    spec:
+      accessModes: ["ReadWriteOnce"]  # #### Only one pod can mount this volume ####
+      resources:
+        requests:
+          storage: 10Gi  # #### Request 10GB of storage ####

@@ -1,0 +1,93 @@
+# #### Database Migration Job ####
+# #### This Job runs database migrations after PostgreSQL is ready ####
+# #### Jobs are perfect for one-time tasks like migrations ####
+apiVersion: batch/v1  # #### Kubernetes batch API ####
+kind: Job  # #### Resource type - runs a task to completion ####
+metadata:
+  name: db-migration-job  # #### Job name ####
+  namespace: payflow  # #### Namespace ####
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure  # #### Restart if failed, but don't retry indefinitely ####
+      containers:
+      - name: db-migration
+        image: postgres:15-alpine  # #### Use PostgreSQL client ####
+        command: ['sh', '-c']
+        args:
+        - |
+          # #### Wait for PostgreSQL to be ready ####
+          echo "Waiting for PostgreSQL to be ready..."
+          until pg_isready -h postgres -p 5432 -U $POSTGRES_USER; do
+            echo "PostgreSQL not ready, waiting..."
+            sleep 5
+          done
+          
+          echo "PostgreSQL is ready! Running migrations..."
+          
+          # #### Create users table ####
+          psql -h postgres -U $POSTGRES_USER -d $POSTGRES_DB -c "
+          CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            email VARCHAR(255) UNIQUE NOT NULL,
+            password_hash VARCHAR(255) NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            role VARCHAR(50) DEFAULT 'user',
+            is_active BOOLEAN DEFAULT true,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );"
+          
+          # #### Create wallets table ####
+          psql -h postgres -U $POSTGRES_USER -d $POSTGRES_DB -c "
+          CREATE TABLE IF NOT EXISTS wallets (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            name VARCHAR(255) NOT NULL,
+            balance DECIMAL(15,2) DEFAULT 0.00,
+            currency VARCHAR(3) DEFAULT 'USD',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );"
+          
+          # #### Create transactions table ####
+          psql -h postgres -U $POSTGRES_USER -d $POSTGRES_DB -c "
+          CREATE TABLE IF NOT EXISTS transactions (
+            id SERIAL PRIMARY KEY,
+            from_wallet_id INTEGER REFERENCES wallets(id),
+            to_wallet_id INTEGER REFERENCES wallets(id),
+            amount DECIMAL(15,2) NOT NULL,
+            currency VARCHAR(3) DEFAULT 'USD',
+            status VARCHAR(50) DEFAULT 'pending',
+            description TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );"
+          
+          # #### Create indexes for performance ####
+          psql -h postgres -U $POSTGRES_USER -d $POSTGRES_DB -c "
+          CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+          CREATE INDEX IF NOT EXISTS idx_wallets_user_id ON wallets(user_id);
+          CREATE INDEX IF NOT EXISTS idx_transactions_from_wallet ON transactions(from_wallet_id);
+          CREATE INDEX IF NOT EXISTS idx_transactions_to_wallet ON transactions(to_wallet_id);
+          CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status);
+          CREATE INDEX IF NOT EXISTS idx_transactions_created_at ON transactions(created_at);
+          "
+          
+          echo "✅ Database migrations completed successfully!"
+        env:
+        - name: POSTGRES_DB
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: DB_NAME
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_USER
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: DB_PASSWORD

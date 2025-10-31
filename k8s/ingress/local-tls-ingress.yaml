@@ -1,0 +1,48 @@
+# #### PayFlow Local Ingress with Self-Signed TLS ####
+# #### This Ingress routes external traffic to internal services ####
+# #### Uses self-signed certificates for local development ####
+apiVersion: networking.k8s.io/v1  # #### Kubernetes networking API ####
+kind: Ingress  # #### Resource type - manages external access ####
+metadata:
+  name: payflow-local-ingress  # #### Ingress name ####
+  namespace: payflow  # #### Namespace ####
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"  # #### Redirect HTTP to HTTPS ####
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"  # #### Force HTTPS ####
+    nginx.ingress.kubernetes.io/rate-limit: "100"  # #### Rate limit: 100 requests per minute ####
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"  # #### Backend protocol ####
+spec:
+  ingressClassName: nginx  # #### Use nginx ingress controller ####
+  tls:  # #### TLS configuration ####
+  - hosts:
+    - api.payflow.local  # #### API subdomain ####
+    - www.payflow.local  # #### Main website ####
+    secretName: payflow-local-tls  # #### Secret to store certificate ####
+  rules:  # #### Routing rules ####
+  - host: api.payflow.local  # #### API subdomain ####
+    http:
+      paths:
+      - path: /  # #### Route everything to API Gateway ####
+        pathType: Prefix  # #### Match all paths starting with / ####
+        backend:
+          service:
+            name: api-gateway  # #### Route to API Gateway service ####
+            port:
+              number: 3000  # #### Service port ####
+      - path: /  # #### Route root to API Gateway health ####
+        pathType: Prefix  # #### Match all paths starting with / ####
+        backend:
+          service:
+            name: api-gateway  # #### Route to API Gateway service ####
+            port:
+              number: 3000  # #### Service port ####
+  - host: www.payflow.local  # #### Main website ####
+    http:
+      paths:
+      - path: /
+        pathType: Prefix  # #### Match all paths starting with / ####
+        backend:
+          service:
+            name: frontend  # #### Route to Frontend service ####
+            port:
+              number: 80  # #### Service port ####

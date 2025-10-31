@@ -1,0 +1,29 @@
+# ============================================
+# ArgoCD Installation - GitOps for PayFlow
+# ============================================
+# This deploys ArgoCD using the official helm chart
+# We're using a simplified install for local development
+# In production, you'd typically use Helm
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://argoproj.github.io/argo-helm
+    chart: argo-cd
+    targetRevision: 7.5.10
+    helm:
+      values: |
+        configs:
+          params:
+            server.insecure: true
+            server.enable.grpc.web: true
+        server:
+          service:
+            type: LoadBalancer
+            port: 80
+

@@ -1,0 +1,33 @@
+# ============================================
+# ArgoCD Ingress Configuration
+# ============================================
+# Purpose: Expose ArgoCD UI at argocd.payflow.local
+# Works with MicroK8s nginx ingress controller
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-ingress
+  namespace: argocd
+  annotations:
+    cert-manager.io/cluster-issuer: "argocd-selfsigned-issuer"  # Use cert-manager for TLS (mimics production)
+    nginx.ingress.kubernetes.io/backend-protocol: "HTTP"  # Communicate with ArgoCD over HTTP (ingress handles TLS)
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"  # Redirect HTTP to HTTPS
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"  # Allow large payloads for Git operations
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - argocd.payflow.local
+    secretName: argocd-tls
+  rules:
+    - host: argocd.payflow.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 80
+

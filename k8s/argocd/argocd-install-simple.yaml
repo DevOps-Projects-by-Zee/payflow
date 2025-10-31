@@ -1,0 +1,11 @@
+# ============================================
+# ArgoCD Simple Installation
+# ============================================
+# Using raw manifests instead of Helm for MicroK8s
+# Source: https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+

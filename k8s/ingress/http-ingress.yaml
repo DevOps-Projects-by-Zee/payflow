@@ -1,0 +1,33 @@
+# #### PayFlow HTTP Ingress (No TLS) ####
+# #### This Ingress routes external traffic to internal services ####
+# #### Uses HTTP only for local development - no SSL complications ####
+apiVersion: networking.k8s.io/v1  # #### Kubernetes networking API ####
+kind: Ingress  # #### Resource type - manages external access ####
+metadata:
+  name: payflow-http-ingress  # #### Ingress name ####
+  namespace: payflow  # #### Namespace ####
+  annotations:
+    nginx.ingress.kubernetes.io/rate-limit: "100"  # #### Rate limit: 100 requests per minute ####
+spec:
+  ingressClassName: nginx  # #### Use nginx ingress controller ####
+  rules:  # #### Routing rules ####
+  - host: api.payflow.local  # #### API subdomain ####
+    http:
+      paths:
+      - path: /  # #### Route everything to API Gateway ####
+        pathType: Prefix  # #### Match all paths starting with / ####
+        backend:
+          service:
+            name: api-gateway  # #### Route to API Gateway service ####
+            port:
+              number: 3000  # #### Service port ####
+  - host: www.payflow.local  # #### Main website ####
+    http:
+      paths:
+      - path: /
+        pathType: Prefix  # #### Match all paths starting with / ####
+        backend:
+          service:
+            name: frontend  # #### Route to Frontend service ####
+            port:
+              number: 80  # #### Service port ####

@@ -1,0 +1,32 @@
+# ============================================
+# Self-Signed Certificate Issuer for ArgoCD
+# ============================================
+# Purpose: Generate self-signed certificates (mimics prod Let's Encrypt)
+# In production, you would use letsencrypt-prod issuer instead
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: argocd-selfsigned-issuer
+spec:
+  selfSigned: {}
+---
+# ============================================
+# ArgoCD TLS Certificate
+# ============================================
+# Purpose: Auto-generate TLS certificate for argocd.payflow.local
+# cert-manager will automatically create the argocd-tls secret
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: argocd-tls
+  namespace: argocd
+spec:
+  secretName: argocd-tls  # Secret name used by ingress
+  issuerRef:
+    name: argocd-selfsigned-issuer
+    kind: ClusterIssuer
+  dnsNames:
+    - argocd.payflow.local
+  duration: 87600h      # 10 years (for local dev)
+  renewBefore: 720h     # Renew 30 days before expiry
+

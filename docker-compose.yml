@@ -1,0 +1,310 @@
+version: '3.8'
+
+# #### Docker Compose Configuration ####
+# #### This file defines all services needed to run PayFlow locally ####
+
+services:
+  # ============================================
+  # INFRASTRUCTURE SERVICES
+  # ============================================
+  
+  # #### PostgreSQL Database ####
+  # #### This stores all persistent data (users, wallets, transactions) ####
+  postgres:
+    image: postgres:15-alpine  # Use PostgreSQL version 15 with Alpine Linux (smaller image)
+    environment:
+      POSTGRES_DB: payflow      # Database name
+      POSTGRES_USER: payflow    # Database user
+      POSTGRES_PASSWORD: payflow123  # Database password (use secrets in production!)
+    ports:
+      - "5432:5432"  # Expose PostgreSQL port to host
+    volumes:
+      - postgres_data:/var/lib/postgresql/data  # Persist database data
+      - ./migrations:/docker-entrypoint-initdb.d  # Run database migrations on startup
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U payflow"]  # Check if database is ready
+      interval: 10s    # Check every 10 seconds
+      timeout: 5s      # Wait 5 seconds for response
+      retries: 5       # Try 5 times before marking as unhealthy
+    networks:
+      - payflow-network  # Connect to our custom network
+
+  # #### Redis Cache ####
+  # #### This stores temporary data (sessions, cache, rate limiting) ####
+  redis:
+    image: redis:7-alpine  # Use Redis version 7 with Alpine Linux
+    ports:
+      - "6379:6379"  # Expose Redis port to host
+    volumes:
+      - redis_data:/data  # Persist Redis data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]  # Check if Redis is responding
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - payflow-network
+
+  # #### RabbitMQ Message Queue ####
+  # #### This handles asynchronous communication between services ####
+  # #### Used for transaction processing and notifications ####
+  rabbitmq:
+    image: rabbitmq:3-management-alpine # #### RabbitMQ with management UI ####
+    ports:
+      - "5672:5672"   # #### AMQP port for message publishing ####
+      - "15672:15672" # #### Management UI port ####
+    environment:
+      RABBITMQ_DEFAULT_USER: payflow     # #### RabbitMQ username ####
+      RABBITMQ_DEFAULT_PASS: payflow123  # #### RabbitMQ password ####
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq  # #### Persist RabbitMQ data ####
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"] # #### Check if RabbitMQ is responding ####
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - payflow-network
+
+  # ============================================
+  # MONITORING STACK
+  # ============================================
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/alerts.yml:/etc/prometheus/alerts.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+    networks:
+      - payflow-network
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3006:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana-dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana-datasources.yml:/etc/grafana/provisioning/datasources/datasource.yml
+    depends_on:
+      - prometheus
+    networks:
+      - payflow-network
+
+  alertmanager:
+    image: prom/alertmanager:latest
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    networks:
+      - payflow-network
+
+  # ============================================
+  # LOGGING STACK
+  # ============================================
+  loki:
+    image: grafana/loki:latest
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/loki
+    networks:
+      - payflow-network
+
+  promtail:
+    image: grafana/promtail:latest
+    volumes:
+      - /var/log:/var/log
+      - ./services:/services:ro
+      - ./monitoring/promtail-config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - payflow-network
+
+  # ============================================
+  # APPLICATION SERVICES
+  # ============================================
+  auth-service:
+    build: ./services/auth-service
+    ports:
+      - "3004:3004"
+    environment:
+      PORT: 3004
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: payflow
+      DB_USER: payflow
+      DB_PASSWORD: payflow123
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      JWT_EXPIRES_IN: 24h
+      NODE_ENV: development
+      SERVICE_NAME: auth-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - payflow-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  wallet-service:
+    build: ./services/wallet-service
+    ports:
+      - "3001:3001"
+    environment:
+      PORT: 3001
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: payflow
+      DB_USER: payflow
+      DB_PASSWORD: payflow123
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: development
+      SERVICE_NAME: wallet-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - payflow-network
+
+  transaction-service:
+    build: ./services/transaction-service
+    ports:
+      - "3005:3002"
+    environment:
+      PORT: 3002
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: payflow
+      DB_USER: payflow
+      DB_PASSWORD: payflow123
+      RABBITMQ_URL: amqp://payflow:payflow123@rabbitmq:5672
+      REDIS_URL: redis://redis:6379
+      WALLET_SERVICE_URL: http://wallet-service:3001
+      NODE_ENV: development
+      SERVICE_NAME: transaction-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      wallet-service:
+        condition: service_healthy
+    networks:
+      - payflow-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  notification-service:
+    build: ./services/notification-service
+    ports:
+      - "3003:3003"
+    environment:
+      PORT: 3003
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: payflow
+      DB_USER: payflow
+      DB_PASSWORD: payflow123
+      RABBITMQ_URL: amqp://payflow:payflow123@rabbitmq:5672
+      NODE_ENV: development
+      SERVICE_NAME: notification-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - payflow-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api-gateway:
+    build: ./services/api-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      AUTH_SERVICE_URL: http://auth-service:3004
+      WALLET_SERVICE_URL: http://wallet-service:3001
+      TRANSACTION_SERVICE_URL: http://transaction-service:3002
+      NOTIFICATION_SERVICE_URL: http://notification-service:3003
+      NODE_ENV: development
+      SERVICE_NAME: api-gateway
+      CORS_ORIGIN: "*"
+    depends_on:
+      - auth-service
+      - wallet-service
+      - transaction-service
+      - notification-service
+    networks:
+      - payflow-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================
+  # FRONTEND
+  # ============================================
+  frontend:
+    build: ./services/frontend
+    ports:
+      - "80:80"
+    environment:
+      REACT_APP_API_URL: http://localhost:3000/api
+    depends_on:
+      - api-gateway
+    networks:
+      - payflow-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  rabbitmq_data:
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:
+  loki_data:
+
+networks:
+  payflow-network:
+    driver: bridge

@@ -1,0 +1,78 @@
+# ============================================
+# Monitoring Ingress Configuration for MicroK8s
+# ============================================
+# Purpose: Expose monitoring dashboards for automatic access (mimics production)
+# Works with MicroK8s nginx ingress controller
+# Production domains configured for Cloudflare Tunnel
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: monitoring-ingress
+  namespace: monitoring
+  annotations:
+    # MicroK8s nginx ingress annotations
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    # Large response support for Grafana dashboards
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+    # Timeout for slow queries
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "300"
+spec:
+  ingressClassName: nginx  # MicroK8s uses nginx ingress
+  rules:
+    # ============================================
+    # LOCAL ACCESS (MicroK8s)
+    # ============================================
+    
+    # Grafana Dashboard - Local MicroK8s access
+    - host: grafana.payflow.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3000
+    
+    # Prometheus - Local MicroK8s access
+    - host: prometheus.payflow.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus
+                port:
+                  number: 9090
+    
+    # ============================================
+    # PRODUCTION ACCESS (Cloudflare Tunnel)
+    # ============================================
+    
+    # Grafana - Production domain (via Cloudflare)
+    - host: grafana.payflow.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: grafana
+                port:
+                  number: 3000
+    
+    # Prometheus - Production domain (via Cloudflare, optional)
+    # Note: Usually keep Prometheus private, but exposing for admin access
+    - host: prometheus.payflow.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prometheus
+                port:
+                  number: 9090
+

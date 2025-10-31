@@ -1,0 +1,97 @@
+# ============================================
+# PostgreSQL Automated Backup CronJob
+# ============================================
+# Purpose: Automated database backups for disaster recovery
+# Runs daily at 2 AM UTC, retains backups for 7 days
+
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgres-backup
+  namespace: payflow
+spec:
+  schedule: "0 2 * * *"  # Daily at 2 AM UTC
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          restartPolicy: OnFailure
+          containers:
+          - name: postgres-backup
+            image: postgres:15-alpine
+            command:
+            - /bin/sh
+            - -c
+            - |
+              set -e
+              echo "Starting PostgreSQL backup..."
+              
+              # Create backup filename with timestamp
+              BACKUP_FILE="/backups/payflow-$(date +%Y%m%d-%H%M%S).sql.gz"
+              
+              # Perform backup
+              PGPASSWORD="$POSTGRES_PASSWORD" pg_dump \
+                -h "$POSTGRES_HOST" \
+                -U "$POSTGRES_USER" \
+                -d "$POSTGRES_DB" \
+                --clean \
+                --if-exists \
+                | gzip > "$BACKUP_FILE"
+              
+              # Verify backup was created
+              if [ -f "$BACKUP_FILE" ]; then
+                echo "Backup completed: $BACKUP_FILE ($(du -h "$BACKUP_FILE" | cut -f1))"
+                
+                # Delete backups older than 7 days
+                find /backups -name "payflow-*.sql.gz" -mtime +7 -delete
+                echo "Cleaned up old backups (>7 days)"
+              else
+                echo "ERROR: Backup file not created!"
+                exit 1
+              fi
+            env:
+            - name: POSTGRES_HOST
+              value: "postgres"
+            - name: POSTGRES_PORT
+              value: "5432"
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: app-config
+                  key: DB_NAME
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: DB_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: db-secrets
+                  key: DB_PASSWORD
+            volumeMounts:
+            - name: backup-storage
+              mountPath: /backups
+          volumes:
+          - name: backup-storage
+            persistentVolumeClaim:
+              claimName: postgres-backup-pvc
+---
+# ============================================
+# PersistentVolumeClaim for Backups
+# ============================================
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-backup-pvc
+  namespace: payflow
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi  # 10GB for backups
+  storageClassName: microk8s-hostpath  # Use MicroK8s default storage class
+
