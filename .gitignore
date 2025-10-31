@@ -3,6 +3,7 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+package-lock.json
 
 # Environment
 .env
@@ -27,18 +28,21 @@ build/
 *.swp
 *.swo
 *~
+.cursor/rules/
 
-# OS
-.DS_Store
-Thumbs.db
-
-# Certificates
+# Sensitive files
 *.pem
 *.key
 *.crt
 *.cert
+*.tar
+secrets/
+*.secret
 
 # Database
 *.sql
 *.db
 *.sqlite
+
+# Documentation (optimization results, etc)
+DOCKER_OPTIMIZATION_RESULTS.md
