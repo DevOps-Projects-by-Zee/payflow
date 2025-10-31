@@ -36,6 +36,7 @@ build/
 *.crt
 *.cert
 *.tar
+*.pkg
 secrets/
 *.secret
 
