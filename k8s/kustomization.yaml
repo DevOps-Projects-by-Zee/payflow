@@ -22,6 +22,8 @@ resources:
   
   # Secrets and ConfigMaps
   - secrets/db-secrets.yaml
+  # Cloudflare tunnel secret (contains sensitive token - not in kustomization by default)
+  # Apply manually: kubectl apply -f secrets/cloudflare-tunnel-secret.yaml
   - configmaps/app-config.yaml
   
   # Infrastructure
@@ -36,6 +38,7 @@ resources:
   - deployments/transaction-service.yaml
   - deployments/notification-service.yaml
   - deployments/frontend.yaml
+  - deployments/cloudflare-tunnel.yaml
   
   # Jobs
   - jobs/db-migration.yaml
@@ -65,7 +68,10 @@ resources:
   - monitoring/prometheus-config.yaml
   - monitoring/prometheus-deployment.yaml
   - monitoring/grafana-datasources.yml
-  - monitoring/grafana-dashboard-config.yaml
+  # grafana-dashboard-config.yaml removed - merged into grafana-dashboards.yaml
+  # The grafana-dashboards.yaml file contains both:
+  # 1. grafana-dashboard-provider (provider config)
+  # 2. grafana-dashboards (dashboard JSON)
   - monitoring/grafana-dashboards.yaml
   - monitoring/grafana-deployment.yaml
 

@@ -1,9 +1,12 @@
 # #### Grafana Dashboard Provisioning Config ####
 # #### This ConfigMap configures Grafana to automatically load dashboards ####
+# NOTE: This ConfigMap has been merged into grafana-dashboards.yaml
+# This file is kept for reference but should not be used in kustomization.yaml
+# The provider config is now in grafana-dashboards.yaml as 'grafana-dashboard-provider'
 apiVersion: v1  # #### Kubernetes API version ####
 kind: ConfigMap  # #### Resource type - stores configuration data ####
 metadata:
-  name: grafana-dashboards  # #### ConfigMap name ####
+  name: grafana-dashboard-config-unused  # #### Renamed to avoid conflict - DO NOT USE ####
   namespace: monitoring  # #### Namespace ####
 data:
   # #### Dashboard Provider Configuration ####
