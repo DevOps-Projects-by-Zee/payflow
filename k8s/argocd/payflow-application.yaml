@@ -14,11 +14,11 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/yourusername/PayFlow.git  # REPLACE WITH YOUR REPO
+    repoURL: https://github.com/DevOps-Projects-by-Zee/payflow.git
     targetRevision: HEAD
     path: k8s
-    kustomize:
-      namespace: payflow
+    # NOTE: No namespace override - let resources use their explicit namespaces
+    # This prevents conflicts when resources span multiple namespaces (payflow, monitoring, argocd)
   destination:
     server: https://kubernetes.default.svc
     namespace: payflow
