@@ -1,0 +1,251 @@
+# Production Environment Terraform Variables Template
+# Copy this file to prod.tfvars and fill in your actual values
+# 
+# IMPORTANT: DO NOT add sensitive values (passwords, keys, connection strings) to this file
+# Sensitive values are managed through GitHub Secrets and Azure Key Vault
+#
+# Usage: This file is referenced by the infrastructure CI/CD pipeline
+# Secrets are injected via environment variables and GitHub Secrets
+
+# =============================================================================
+# RESOURCE GROUP AND LOCATION CONFIGURATION
+# =============================================================================
+
+# Resource group name (will be created if it doesn't exist)
+resource_group_name = "gameapp-rg"
+
+# Primary region for main infrastructure
+location = "eastus"
+
+# Secondary region for disaster recovery
+secondary_location = "westus2"
+
+# =============================================================================
+# NETWORK CONFIGURATION
+# =============================================================================
+
+# Hub network address space (shared services)
+hub_address_space = ["10.0.0.0/16"]
+
+# Primary spoke network address space (AKS and application)
+spoke_address_space = ["10.1.0.0/16"]
+
+# Secondary spoke network address space (disaster recovery)
+spoke_secondary_address_space = ["10.2.0.0/16"]
+
+# =============================================================================
+# DOMAIN AND DNS CONFIGURATION
+# =============================================================================
+
+# Custom domain name for the application
+domain_name = "gameapp.games"
+
+# =============================================================================
+# AKS CLUSTER CONFIGURATION
+# =============================================================================
+
+# Primary AKS cluster configuration
+aks_cluster_name        = "aks-payflow-prod"
+aks_dns_prefix          = "payflow-prod"
+aks_kubernetes_version  = "1.30.14"         # Stable version with KubernetesOfficial support
+aks_node_count          = 2                 # Initial nodes
+aks_vm_size             = "Standard_D2s_v3" # Production VM size
+aks_enable_auto_scaling = true              # Enable auto-scaling
+aks_min_count           = 1                 # Minimum nodes
+aks_max_count           = 5                 # Maximum nodes
+
+# Secondary AKS cluster configuration (warm standby)
+aks_cluster_name_secondary        = "aks-payflow-prod-secondary"
+aks_dns_prefix_secondary          = "payflow-prod-sec"
+aks_kubernetes_version_secondary  = "1.30.14"
+aks_node_count_secondary          = 1              # Reduced for standby
+aks_vm_size_secondary             = "Standard_B2s" # Smaller VM for standby
+aks_enable_auto_scaling_secondary = false          # Disable for predictable costs
+aks_min_count_secondary           = 1
+aks_max_count_secondary           = 1
+
+# =============================================================================
+# CONTAINER REGISTRY CONFIGURATION
+# =============================================================================
+
+# Azure Container Registry configuration
+acr_name                          = "acrpayflowprod123" # Must be globally unique
+acr_sku                           = "Standard"             # Standard tier for production
+acr_admin_enabled                 = false                  # Disable admin for security
+acr_public_network_access_enabled = true                   # Enable for CI/CD access
+acr_retention_policy_days         = 30                     # Image retention policy
+
+# =============================================================================
+# DATABASE CONFIGURATION
+# =============================================================================
+
+# PostgreSQL Flexible Server configuration
+postgres_server_name           = "psql-payflow-prod"
+postgres_sku_name              = "GP_Standard_D2s_v3" # General Purpose tier
+postgres_storage_mb            = 32768                # 32 GB storage
+postgres_backup_retention_days = 35                   # Backup retention
+postgres_geo_redundant_backup  = "Enabled"            # Cross-region backup
+postgres_high_availability     = "Enabled"            # Zone redundancy
+postgres_version               = "14"                 # PostgreSQL version
+
+# =============================================================================
+# REDIS CACHE CONFIGURATION
+# =============================================================================
+
+# Azure Redis Cache configuration
+redis_name                = "redis-payflow-prod"
+redis_capacity            = 1         # 1 GB cache size
+redis_family              = "C"       # C-series for production
+redis_sku                 = "Premium" # Premium tier required for subnet integration
+redis_enable_non_ssl_port = false     # Require SSL
+redis_minimum_tls_version = "1.2"     # TLS 1.2 minimum
+
+# Secondary Redis Cache (warm standby)
+redis_name_secondary                = "redis-payflow-prod-secondary"
+redis_capacity_secondary            = 1          # 1 GB cache size
+redis_family_secondary              = "C"        # C-series
+redis_sku_secondary                 = "Standard" # Standard tier
+redis_enable_non_ssl_port_secondary = false
+redis_minimum_tls_version_secondary = "1.2"
+
+# =============================================================================
+# FRONT DOOR CONFIGURATION
+# =============================================================================
+
+# Azure Front Door configuration
+# NOTE: These values are automatically populated by the CI/CD pipeline
+# from AKS ingress outputs - DO NOT manually edit these values
+frontdoor_name                     = "fd-payflow-prod"
+frontdoor_health_probe_path        = "/health"
+frontdoor_health_probe_interval    = 60
+frontdoor_health_probe_threshold   = 3
+frontdoor_session_affinity_enabled = false
+
+# =============================================================================
+# MONITORING AND LOGGING CONFIGURATION
+# =============================================================================
+
+# Log Analytics Workspace configuration
+log_analytics_workspace_name    = "law-payflow-prod"
+log_analytics_sku               = "PerGB2018" # Pay-per-GB pricing
+log_analytics_retention_in_days = 30
+
+# Application Insights configuration
+app_insights_name             = "appi-payflow-prod"
+app_insights_application_type = "web"
+app_insights_workspace_mode   = "workspace-based"
+
+# =============================================================================
+# KEY VAULT CONFIGURATION
+# =============================================================================
+
+# Azure Key Vault configuration
+key_vault_name                       = "kv-payflow-prod"
+key_vault_sku_name                   = "standard"
+key_vault_enable_rbac_authorization  = true # Use RBAC instead of access policies
+key_vault_enable_soft_delete         = true
+key_vault_soft_delete_retention_days = 7
+key_vault_enable_purge_protection    = false
+
+# =============================================================================
+# TAGS AND LABELS
+# =============================================================================
+
+# Common tags for all resources
+common_tags = {
+  Environment    = "production"
+  Application    = "payflow"
+  CostCenter     = "fintech-platform"
+  Owner          = "devops-team"
+  Project        = "payflow-app"
+  ManagedBy      = "terraform"
+  BackupRequired = "true"
+  Compliance     = "pci-dss"
+}
+
+# =============================================================================
+# SECURITY AND COMPLIANCE
+# =============================================================================
+
+# Network security configuration
+enable_private_endpoints       = true  # Use private endpoints for secure access
+enable_network_security_groups = true  # Enable NSGs for traffic control
+enable_ddos_protection         = false # DDoS protection (optional for cost)
+
+# Compliance and audit configuration
+enable_audit_logging       = true # Enable comprehensive audit logging
+enable_diagnostic_settings = true # Enable diagnostic settings for monitoring
+enable_azure_monitor       = true # Enable Azure Monitor integration
+
+# =============================================================================
+# COST OPTIMIZATION
+# =============================================================================
+
+# Auto-shutdown configuration for development resources
+enable_auto_shutdown = false # Disable for production
+
+# Reserved instances (optional for cost savings)
+enable_reserved_instances = false # Can be enabled for predictable workloads
+
+# =============================================================================
+# DISASTER RECOVERY CONFIGURATION
+# =============================================================================
+
+# Cross-region replication settings
+enable_cross_region_replication = true
+secondary_region_backup_enabled = true
+recovery_point_objective        = "15m" # 15-minute RPO
+recovery_time_objective         = "1h"  # 1-hour RTO
+
+# =============================================================================
+# SCALING AND PERFORMANCE
+# =============================================================================
+
+# Auto-scaling configuration
+enable_horizontal_pod_autoscaling = true
+enable_cluster_autoscaler         = true
+enable_vertical_pod_autoscaling   = false # Not recommended for production
+
+# Performance tuning
+enable_kubernetes_dashboard = false # Disable for security
+enable_azure_policy         = true  # Enable Azure Policy for governance
+enable_azure_monitor_agent  = true  # Enable monitoring agent
+
+# =============================================================================
+# NOTES AND WARNINGS
+# =============================================================================
+
+# IMPORTANT SECURITY NOTES:
+# 1. This file should NOT contain any sensitive information
+# 2. All passwords, keys, and secrets should be managed via GitHub Secrets
+# 3. Database passwords are stored in Azure Key Vault
+# 4. Application secrets are injected via environment variables in CI/CD
+
+# COST OPTIMIZATION NOTES:
+# 1. Start with smaller VM sizes and scale up as needed
+# 2. Use auto-scaling to optimize costs
+# 3. Monitor usage and adjust resource sizes accordingly
+# 4. Consider reserved instances for predictable workloads
+
+# =============================================================================
+# MISSING VARIABLES (ADDED TO FIX VALIDATION)
+# =============================================================================
+enable_spot_instances               = false
+frontdoor_primary_origin            = "aks-payflow-prod.eastus.cloudapp.azure.com"
+frontdoor_secondary_origin          = "aks-payflow-prod-secondary.westus2.cloudapp.azure.com"
+frontdoor_session_affinity          = false
+keyvault_enable_soft_delete         = true
+keyvault_name                       = "kv-payflow-prod"
+keyvault_soft_delete_retention_days = 7
+log_analytics_retention_days        = 30
+postgres_admin_username             = "psqladmin"
+
+# =============================================================================
+# SECRET VARIABLES (REPLACE WITH ACTUAL VALUES)
+# =============================================================================
+# Note: These are placeholder values - replace with actual secrets
+# For production, use GitHub Secrets or environment variables
+
+database_password = "REPLACE_WITH_ACTUAL_DB_PASSWORD"
+redis_password    = "REPLACE_WITH_ACTUAL_REDIS_PASSWORD"
+api_key           = "REPLACE_WITH_ACTUAL_API_KEY"

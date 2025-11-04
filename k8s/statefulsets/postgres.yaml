@@ -32,6 +32,8 @@ spec:
       labels:
         app: postgres  # #### Pod label ####
     spec:
+      # Service account with IRSA annotation for AWS Secrets Manager access
+      serviceAccountName: postgres
       containers:
       - name: postgres
         image: postgres:15-alpine  # #### PostgreSQL 15 with Alpine Linux ####

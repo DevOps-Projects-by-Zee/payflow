@@ -24,6 +24,8 @@ spec:
       labels:
         app: notification-service
     spec:
+      # Service account with IRSA annotation for AWS Secrets Manager access
+      serviceAccountName: notification-service
       containers:
       - name: notification-service
         image: payflow/notification-service:latest

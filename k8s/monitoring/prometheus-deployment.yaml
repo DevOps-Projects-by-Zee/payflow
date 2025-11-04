@@ -53,14 +53,35 @@ spec:
           volumeMounts:
             - mountPath: /etc/prometheus
               name: config
+            - mountPath: /etc/prometheus/rules
+              name: rules
+              readOnly: true
             - mountPath: /prometheus
               name: storage
       volumes:
         - name: config
           configMap:
             name: prometheus-config
+        - name: rules
+          configMap:
+            name: prometheus-rules
         - name: storage
-          emptyDir: {}
+          persistentVolumeClaim:
+            claimName: prometheus-storage
   strategy:
     type: Recreate  # Don't roll updates, just recreate
+---
+# PersistentVolumeClaim for Prometheus metrics storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prometheus-storage
+  namespace: monitoring
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 50Gi  # 50GB for 30 days of metrics retention
+  storageClassName: managed-premium  # Azure Premium storage for better performance
 

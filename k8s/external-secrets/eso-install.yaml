@@ -1,0 +1,72 @@
+# ============================================
+# External Secrets Operator Installation
+# ============================================
+# Purpose: Install External Secrets Operator to sync AWS Secrets Manager secrets into Kubernetes
+# 
+# INSTALLATION OPTIONS:
+# 
+# Option 1: Using Helm (Recommended)
+#   helm repo add external-secrets https://charts.external-secrets.io
+#   helm repo update
+#   helm install external-secrets external-secrets/external-secrets \
+#     --namespace external-secrets-system \
+#     --create-namespace \
+#     --set installCRDs=true \
+#     --set serviceAccount.annotations."eks\.amazonaws\.com/role-arn"=REPLACE_WITH_SECRETS_ACCESS_ROLE_ARN
+#
+# Option 2: Using ArgoCD (if ArgoCD is installed)
+#   kubectl apply -f k8s/external-secrets/eso-install.yaml
+#
+# After installation, verify:
+#   kubectl get pods -n external-secrets-system
+#   kubectl get externalsecrets -n payflow
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: external-secrets-system
+  labels:
+    name: external-secrets-system
+---
+# ============================================
+# ArgoCD Application (if using ArgoCD)
+# ============================================
+# Uncomment below if you want ArgoCD to manage ESO installation
+# Otherwise, use Helm commands above
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: external-secrets-operator
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://charts.external-secrets.io
+    chart: external-secrets
+    targetRevision: 0.9.11
+    helm:
+      values: |
+        installCRDs: true
+        serviceAccount:
+          create: true
+          annotations:
+            eks.amazonaws.com/role-arn: "REPLACE_WITH_SECRETS_ACCESS_ROLE_ARN"
+        replicaCount: 1
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: external-secrets-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+

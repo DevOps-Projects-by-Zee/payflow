@@ -24,6 +24,8 @@ spec:
       labels:
         app: wallet-service
     spec:
+      # Service account with IRSA annotation for AWS Secrets Manager access
+      serviceAccountName: wallet-service
       containers:
       - name: wallet-service
         image: payflow/wallet-service:latest

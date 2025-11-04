@@ -1,0 +1,20 @@
+# ============================================
+# Development Environment Example Variables
+# ============================================
+# Copy this file to terraform.tfvars and update values
+
+project_name = "payflow"
+aws_region   = "us-east-1"
+
+# Backend configuration (from Hub)
+terraform_state_bucket = "payflow-terraform-state-xxxxx"  # Get from Hub outputs
+
+# Node configuration
+node_key_pair_name = "payflow-bastion"  # Same as Hub
+
+# Database configuration (cost-optimized for dev)
+db_instance_class = "db.t3.micro"  # Single-AZ
+
+# Redis configuration (cost-optimized for dev)
+redis_node_type = "cache.t3.micro"  # Single node
+

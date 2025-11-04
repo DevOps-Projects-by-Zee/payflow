@@ -2,14 +2,14 @@
 # Cloudflare Tunnel Deployment
 # ============================================
 # Purpose: Create secure tunnel to Cloudflare without public IPs
-# Use this for: Production public access to monitoring and services
-# Note: Deploy AFTER monitoring is working locally
+# Domain: gameapp.games (configured for production public access)
+# Tunnel: gameapp-tunnel (ID: 91aeb32f-008f-4fc8-ad0e-255ea67737a9)
 #
 # Setup Steps:
-# 1. Install cloudflared on your machine: brew install cloudflared
-# 2. Login: cloudflared tunnel login
-# 3. Create tunnel in Cloudflare dashboard or via CLI
-# 4. Update TUNNEL_ID and TUNNEL_TOKEN in secrets
+# 1. Get tunnel token from Cloudflare dashboard (see docs/cloudflare-tunnel-setup.md)
+# 2. Update TUNNEL_TOKEN in k8s/secrets/cloudflare-tunnel-secret.yaml
+# 3. Apply this deployment
+# 4. Configure DNS in Cloudflare dashboard (see setup guide)
 
 apiVersion: v1
 kind: ServiceAccount
@@ -17,19 +17,8 @@ metadata:
   name: cloudflare-tunnel
   namespace: payflow
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: cloudflare-tunnel-secret
-  namespace: payflow
-type: Opaque
-data:
-  # Base64 encoded tunnel credentials
-  # Get from Cloudflare dashboard or cloudflared tunnel create
-  credentials.json: |
-    {"TunnelID":"YOUR_TUNNEL_ID","TunnelSecret":"YOUR_TUNNEL_SECRET"}
-  # Or use token-based auth (simpler)
-  # cloudflared tunnel token YOUR_TUNNEL_TOKEN
+# Note: Secret is defined separately in k8s/secrets/cloudflare-tunnel-secret.yaml
+# This keeps sensitive tokens out of the main deployment file
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -38,31 +27,60 @@ metadata:
   namespace: payflow
 data:
   config.yaml: |
-    # Cloudflare Tunnel configuration
+    # Cloudflare Tunnel configuration for gameapp.games
     # This routes traffic from Cloudflare to your Kubernetes services
-    tunnel: YOUR_TUNNEL_ID
-    credentials-file: /etc/cloudflared/creds/credentials.json
+    
+    tunnel: 91aeb32f-008f-4fc8-ad0e-255ea67737a9
     
     ingress:
-      # Route monitoring dashboard
-      - hostname: grafana.payflow.com
-        service: http://grafana:3000
+      # ============================================
+      # Public Production Routes (gameapp.games)
+      # ============================================
       
-      # Route Prometheus (optional - usually keep private)
-      - hostname: prometheus.payflow.com
-        service: http://prometheus:9090
+      # Main Frontend - gameapp.games (root domain)
+      - hostname: gameapp.games
+        service: http://frontend.payflow.svc.cluster.local:80
+        originRequest:
+          noTLSVerify: true
+      
+      # www subdomain - www.gameapp.games
+      - hostname: www.gameapp.games
+        service: http://frontend.payflow.svc.cluster.local:80
+        originRequest:
+          noTLSVerify: true
+      
+      # API Gateway - app.gameapp.games (matches your DNS)
+      - hostname: app.gameapp.games
+        service: http://api-gateway.payflow.svc.cluster.local:3000
+        originRequest:
+          noTLSVerify: true
+      
+      # API Gateway - api.gameapp.games (alternative)
+      - hostname: api.gameapp.games
+        service: http://api-gateway.payflow.svc.cluster.local:3000
+        originRequest:
+          noTLSVerify: true
+      
+      # Grafana Dashboard - grafana.gameapp.games
+      - hostname: grafana.gameapp.games
+        service: http://grafana.monitoring.svc.cluster.local:3000
+        originRequest:
+          noTLSVerify: true
+      
+      # Prometheus - prometheus.gameapp.games
+      - hostname: prometheus.gameapp.games
+        service: http://prometheus.monitoring.svc.cluster.local:9090
         originRequest:
           noHappyEyeballs: true
+          noTLSVerify: true
       
-      # Route API Gateway
-      - hostname: api.payflow.com
-        service: http://api-gateway:3000
+      # ArgoCD - argocd.gameapp.games
+      - hostname: argocd.gameapp.games
+        service: http://argocd-server.argocd.svc.cluster.local:80
+        originRequest:
+          noTLSVerify: true
       
-      # Route Frontend
-      - hostname: payflow.com
-        service: http://frontend:80
-      
-      # Catch-all for health checks
+      # Catch-all for health checks and unmatched routes
       - service: http_status:404
 ---
 apiVersion: apps/v1
@@ -71,7 +89,7 @@ metadata:
   name: cloudflare-tunnel
   namespace: payflow
 spec:
-  replicas: 1
+  replicas: 2  # Increased for HA - if one pod fails, other continues
   selector:
     matchLabels:
       app: cloudflare-tunnel
@@ -83,25 +101,46 @@ spec:
       serviceAccountName: cloudflare-tunnel
       containers:
         - name: cloudflared
-          image: cloudflare/cloudflared:latest
+          image: cloudflare/cloudflared:latest  # Use latest for compatibility
           args:
             - tunnel
             - --config
             - /etc/cloudflared/config.yaml
             - run
           env:
-            # Tunnel token (preferred method)
+            # Tunnel token (preferred method - simpler than credentials file)
             - name: TUNNEL_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: cloudflare-tunnel-secret
                   key: tunnel_token
+                  optional: false  # Ensure secret exists
           volumeMounts:
             - name: config
-              mountPath: /etc/cloudflared
-            - name: credentials
-              mountPath: /etc/cloudflared/creds
+              mountPath: /etc/cloudflared/config.yaml
+              subPath: config.yaml
               readOnly: true
+          # Health check to detect tunnel failures
+          livenessProbe:
+            exec:
+              command:
+                - /usr/local/bin/cloudflared
+                - tunnel
+                - info
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          # Readiness probe to ensure tunnel is ready
+          readinessProbe:
+            exec:
+              command:
+                - /usr/local/bin/cloudflared
+                - tunnel
+                - info
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
           resources:
             requests:
               memory: 128Mi
@@ -113,7 +152,7 @@ spec:
         - name: config
           configMap:
             name: cloudflare-tunnel-config
-        - name: credentials
-          secret:
-            secretName: cloudflare-tunnel-secret
+            items:
+              - key: config.yaml
+                path: config.yaml
 

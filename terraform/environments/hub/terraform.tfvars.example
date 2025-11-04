@@ -1,0 +1,28 @@
+# ============================================
+# Hub Environment Example Variables
+# ============================================
+# Copy this file to terraform.tfvars and update values
+# terraform.tfvars should NOT be committed to git (contains sensitive values)
+
+project_name = "payflow"
+aws_region   = "us-east-1"
+
+# Bastion configuration
+bastion_key_pair_name = "payflow-bastion"  # Must exist in AWS
+
+# IP Auto-Detection (RECOMMENDED):
+# Leave bastion_allowed_cidrs empty to auto-detect your IP automatically!
+# Terraform will automatically fetch your public IP and use it.
+bastion_allowed_cidrs = []  # Empty = Auto-detect IP automatically! ✨
+
+# Manual IP (OPTIONAL - only if auto-detection fails):
+# If you need to specify manually: bastion_allowed_cidrs = ["YOUR_IP/32"]
+# Get your IP: curl ifconfig.me
+# SECURITY: 0.0.0.0/0 is NOT allowed - must be specific IP
+
+# Cost optimization
+single_nat_gateway = false  # Set to true for dev to save $64/month
+
+# Optional: Route53 private DNS
+enable_route53_private_dns = false
+

@@ -9,6 +9,8 @@ metadata:
 spec:
   template:
     spec:
+      # Service account with IRSA annotation for AWS Secrets Manager access
+      serviceAccountName: db-migration-job
       restartPolicy: OnFailure  # #### Restart if failed, but don't retry indefinitely ####
       containers:
       - name: db-migration

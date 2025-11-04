@@ -24,6 +24,8 @@ spec:
       labels:
         app: transaction-service
     spec:
+      # Service account with IRSA annotation for AWS Secrets Manager access
+      serviceAccountName: transaction-service
       containers:
       - name: transaction-service
         image: payflow/transaction-service:latest

@@ -29,6 +29,8 @@ spec:
       labels:
         app: auth-service  # #### Pod label ####
     spec:
+      # Service account with IRSA annotation for AWS Secrets Manager access
+      serviceAccountName: auth-service
       containers:
       - name: auth-service
         image: payflow/auth-service:latest  # #### Docker image ####

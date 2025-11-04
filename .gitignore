@@ -39,6 +39,7 @@ build/
 *.pkg
 secrets/
 *.secret
+k8s/secrets/cloudflare-tunnel-secret.yaml
 
 # Database
 *.sql
@@ -47,3 +48,18 @@ secrets/
 
 # Documentation (optimization results, etc)
 DOCKER_OPTIMIZATION_RESULTS.md
+docs/AWS/letgo/
+
+#Ignore cursor AI rules
+.cursor/rules/codacy.mdc
+logs/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+.terraform.lock.hcl
+terraform.tfstate.backup
+azure-credentials.json
+*credentials*.json

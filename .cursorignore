@@ -1,0 +1,22 @@
+# Auto-generated docs to ignore
+ARCHITECTURE_EXPLAINED.md
+IMPLEMENTATION_SUMMARY.md
+
+# Terraform state files (should never be committed)
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# Terraform variables (may contain sensitive data)
+*.tfvars
+!*.tfvars.example
+
+# AWS credentials
+.aws/
+*.pem
+
+# Backend config (contains actual values)
+backend-config.hcl
+!backend-config.hcl.tpl
+

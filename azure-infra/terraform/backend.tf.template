@@ -1,0 +1,25 @@
+# Terraform Backend Configuration Template
+# Copy this file to your environment directory and customize as needed
+
+terraform {
+  backend "azurerm" {
+    resource_group_name  = "YOUR_RESOURCE_GROUP_NAME"
+    storage_account_name = "YOUR_STORAGE_ACCOUNT_NAME"
+    container_name      = "YOUR_CONTAINER_NAME"
+    key                 = "YOUR_STATE_FILE_NAME.tfstate"
+    
+    # Optional: Use Azure AD authentication instead of storage account key
+    # use_azuread_auth = true
+    # subscription_id  = "YOUR_SUBSCRIPTION_ID"
+    # tenant_id        = "YOUR_TENANT_ID"
+    
+    # Optional: Enable state file encryption at rest
+    # encryption_at_rest = true
+  }
+}
+
+# Usage:
+# 1. Copy this template to your environment directory
+# 2. Replace placeholder values with your actual configuration
+# 3. Rename the file to backend.tf
+# 4. Run terraform init to configure the backend

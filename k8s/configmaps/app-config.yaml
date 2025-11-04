@@ -17,7 +17,16 @@ data:
   REDIS_URL: "redis://redis:6379"  # #### Redis connection URL ####
   
   # #### Message Queue Configuration ####
-  RABBITMQ_URL: "amqp://payflow:payflow123@rabbitmq:5672"  # #### RabbitMQ connection URL (with credentials) ####
+  # NOTE: RabbitMQ credentials are now in AWS Secrets Manager
+  # The URL should be constructed dynamically in the application using:
+  # RABBITMQ_USER and RABBITMQ_PASSWORD from db-secrets Kubernetes Secret
+  # For now, keeping placeholder - update your application to build URL from secrets
+  RABBITMQ_URL: "amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672"  # #### Use secrets - will be replaced by application code ####
+  
+  # Alternative: Store only the base URL, construct full URL in application
+  # RABBITMQ_HOST: "rabbitmq"
+  # RABBITMQ_PORT: "5672"
+  # Application code should read RABBITMQ_USER and RABBITMQ_PASSWORD from secrets
   
   # #### Service URLs ####
   # #### These URLs are used for service-to-service communication ####

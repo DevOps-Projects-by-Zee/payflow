@@ -28,6 +28,16 @@ resources:
   # Apply manually: kubectl apply -f secrets/cloudflare-tunnel-secret.yaml
   - configmaps/app-config.yaml
   
+  # External Secrets Operator (Hybrid Cloud: AWS + Azure)
+  # Install ESO first: kubectl apply -f external-secrets/eso-install.yaml
+  # Then apply service accounts and external secrets
+  - external-secrets/service-accounts.yaml  # AWS IRSA service accounts
+  - external-secrets/service-accounts-azure.yaml  # Azure Workload Identity service accounts
+  - external-secrets/external-secrets.yaml  # AWS Secrets Manager
+  - external-secrets/azure-keyvault-secrets.yaml  # Azure Key Vault
+  # NOTE: Remember to replace placeholder ARNs/URLs with actual values from Terraform outputs
+  # Use script: ./scripts/local/update-azure-secrets-config.sh
+  
   # Infrastructure
   - statefulsets/postgres.yaml
   - deployments/rabbitmq.yaml
@@ -69,11 +79,12 @@ resources:
   # Monitoring
   - monitoring/prometheus-config.yaml
   - monitoring/prometheus-deployment.yaml
-  - monitoring/grafana-datasources.yml
-  # grafana-dashboard-config.yaml removed - merged into grafana-dashboards.yaml
-  # The grafana-dashboards.yaml file contains both:
-  # 1. grafana-dashboard-provider (provider config)
-  # 2. grafana-dashboards (dashboard JSON)
-  - monitoring/grafana-dashboards.yaml
-  - monitoring/grafana-deployment.yaml
+  - monitoring/alertmanager-deployment.yaml
+  - monitoring/loki-deployment.yaml
+  - monitoring/promtail-deployment.yaml
+  # NOTE: Grafana deployment removed - using Azure Managed Grafana instead
+  # Grafana datasources kept for reference (Azure Managed Grafana will use Azure Monitor/Prometheus)
+  # - monitoring/grafana-datasources.yml
+  # - monitoring/grafana-dashboards.yaml
+  # - monitoring/grafana-deployment.yaml
 
