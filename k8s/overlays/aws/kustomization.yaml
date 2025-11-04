@@ -1,0 +1,63 @@
+# ============================================
+# AWS (EKS/ECR) Overlay
+# ============================================
+# Purpose: AWS deployment configuration
+# Usage: kubectl apply -k k8s/overlays/aws
+#
+# This overlay:
+# - Uses ECR image URLs
+# - Sets imagePullPolicy: IfNotPresent
+# - Uses AWS IRSA service accounts
+# - Uses AWS Secrets Manager via External Secrets
+#
+# IMPORTANT: Run update script first to populate values:
+#   ./scripts/terraform/update-k8s-for-aws.sh hub
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: payflow
+
+resources:
+  - ../../base
+
+# Common labels for AWS
+commonLabels:
+  environment: aws
+  cloud: aws
+
+# Patches: Override imagePullPolicy for AWS
+patchesStrategicMerge:
+  - patches/image-pull-policy.yaml
+
+# Images: Use ECR registry
+# NOTE: These will be auto-populated by update-k8s-for-aws.sh script AFTER Terraform deployment
+# The script will update this file with actual ECR URLs from Terraform outputs
+# Format (after update): <ACCOUNT_ID>.dkr.ecr.<REGION>.amazonaws.com/payflow/<service>:<tag>
+# For now, keep placeholder values matching base manifests
+images:
+  - name: payflow/api-gateway
+    newName: payflow/api-gateway
+    newTag: latest
+  - name: payflow/auth-service
+    newName: payflow/auth-service
+    newTag: latest
+  - name: payflow/wallet-service
+    newName: payflow/wallet-service
+    newTag: latest
+  - name: payflow/transaction-service
+    newName: payflow/transaction-service
+    newTag: latest
+  - name: payflow/notification-service
+    newName: payflow/notification-service
+    newTag: latest
+  - name: payflow/frontend
+    newName: payflow/frontend
+    newTag: latest
+
+# Include AWS-specific resources
+patches:
+  - path: patches/service-accounts-aws.yaml
+    target:
+      kind: ServiceAccount
+

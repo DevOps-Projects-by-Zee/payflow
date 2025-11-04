@@ -1,0 +1,55 @@
+# ============================================
+# Local (MicroK8s) Overlay
+# ============================================
+# Purpose: Local deployment configuration
+# Usage: kubectl apply -k k8s/overlays/local
+#
+# This overlay:
+# - Uses local image references (payflow/service:latest)
+# - Sets imagePullPolicy: Never (local images)
+# - Uses local secrets (no external secrets)
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: payflow
+
+resources:
+  - ../../base
+
+# Patches: Override imagePullPolicy for local deployment
+patchesStrategicMerge:
+  - patches/image-pull-policy.yaml
+
+# Images: Use local registry
+images:
+  - name: payflow/api-gateway
+    newName: payflow/api-gateway
+    newTag: latest
+  - name: payflow/auth-service
+    newName: payflow/auth-service
+    newTag: latest
+  - name: payflow/wallet-service
+    newName: payflow/wallet-service
+    newTag: latest
+  - name: payflow/transaction-service
+    newName: payflow/transaction-service
+    newTag: latest
+  - name: payflow/notification-service
+    newName: payflow/notification-service
+    newTag: latest
+  - name: payflow/frontend
+    newName: payflow/frontend
+    newTag: latest
+
+# Remove external secrets (not needed for local)
+replacements:
+  - source:
+      kind: SecretStore
+      name: aws-secrets-manager
+    target:
+      kind: ExternalSecret
+      name: postgres-credentials
+    options:
+      create: false
+

@@ -62,6 +62,107 @@ We chose to implement local CI/CD first because:
 - ✅ **Git-friendly** - YAML files in version control
 - ✅ **Simple** - Easier for beginners to understand
 
+#### **Understanding Kustomize Base and Overlays**
+
+**What is BASE?**
+- **Base** = Shared configuration that ALL environments use
+- Contains all your services (api-gateway, auth-service, etc.)
+- Same configuration structure for everyone
+- No environment-specific values
+- Think of it as: "The master blueprint"
+
+**What is an OVERLAY?**
+- **Overlay** = Environment-specific changes on top of base
+- You have 3 overlays:
+  - `k8s/overlays/local/` → For MicroK8s (local)
+  - `k8s/overlays/aws/` → For AWS EKS
+  - `k8s/overlays/azure/` → For Azure AKS
+- Each overlay:
+  - References the base (`resources: - ../../base`)
+  - Changes only what's different for that environment
+
+**How They Work Together:**
+
+**Example: Your API Gateway Image**
+
+Base manifest (same for everyone):
+```yaml
+# k8s/deployments/api-gateway.yaml
+image: payflow/api-gateway:latest
+imagePullPolicy: Never
+```
+
+Local overlay (changes it):
+```yaml
+# k8s/overlays/local/kustomization.yaml
+images:
+  - name: payflow/api-gateway
+    newName: payflow/api-gateway  # Stays same (local)
+    
+patchesStrategicMerge:
+  - patches/image-pull-policy.yaml  # Keeps imagePullPolicy: Never
+```
+
+AWS overlay (changes it differently):
+```yaml
+# k8s/overlays/aws/kustomization.yaml
+images:
+  - name: payflow/api-gateway
+    newName: 334091769766.dkr.ecr.us-east-1.amazonaws.com/payflow/api-gateway  # ECR URL!
+    
+patchesStrategicMerge:
+  - patches/image-pull-policy.yaml  # Changes to imagePullPolicy: IfNotPresent
+```
+
+**What Happens When You Deploy?**
+
+When you run:
+```bash
+kubectl apply -k k8s/overlays/local
+```
+
+Kustomize does this:
+1. Reads base → Gets all your services
+2. Reads local overlay → Gets local-specific changes
+3. Merges them together → Creates final configuration
+4. Applies to Kubernetes
+
+**Result:**
+- **Base**: `image: payflow/api-gateway:latest`
+- **Overlay**: `newName: payflow/api-gateway` (same)
+- **Final**: `image: payflow/api-gateway:latest` (for local)
+
+**For AWS:**
+- **Base**: `image: payflow/api-gateway:latest`
+- **Overlay**: `newName: 334091769766.dkr.ecr...` (ECR URL)
+- **Final**: `image: 334091769766.dkr.ecr.../payflow/api-gateway:latest` (for AWS)
+
+**Why Use This?**
+
+**Without Kustomize (the old way):**
+```bash
+# You'd have to manually edit files for each environment 😞
+# Edit k8s/deployments/api-gateway.yaml for local
+# Edit k8s/deployments/api-gateway.yaml for AWS
+# Edit k8s/deployments/api-gateway.yaml for Azure
+# Easy to make mistakes! 😱
+```
+
+**With Kustomize (the new way):**
+```bash
+# Base stays the same ✅
+# Overlays handle differences ✅
+kubectl apply -k k8s/overlays/local   # Local deployment
+kubectl apply -k k8s/overlays/aws    # AWS deployment
+kubectl apply -k k8s/overlays/azure  # Azure deployment
+```
+
+**Benefits:**
+- ✅ **One base, multiple environments** - No duplication
+- ✅ **No manual editing** - Overlays handle changes automatically
+- ✅ **Clear separation** - Base vs environment-specific
+- ✅ **Easy to maintain** - Change base once, affects all environments
+
 ### **Local Pipeline Stages**
 
 #### **Stage 1: Test & Lint**

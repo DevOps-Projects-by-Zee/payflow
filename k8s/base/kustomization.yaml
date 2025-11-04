@@ -1,0 +1,78 @@
+# ============================================
+# Base Kustomization - Common Resources
+# ============================================
+# Purpose: Base manifests shared by all environments
+# Usage: Referenced by overlays (local, aws, azure)
+#
+# This contains:
+# - All common resources (deployments, services, configmaps)
+# - No environment-specific values
+# - Can be used by any overlay
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: payflow
+
+resources:
+  # Namespaces
+  - ../namespace.yaml
+  - ../monitoring-namespace.yaml
+  - ../argocd-namespace.yaml
+  
+  # ArgoCD Configuration
+  - ../argocd/argocd-configmap.yaml
+  - ../argocd/argocd-certificate-issuer.yaml
+  
+  # Secrets and ConfigMaps
+  - ../secrets/db-secrets.yaml
+  - ../configmaps/app-config.yaml
+  
+  # External Secrets (will be conditionally included by overlays)
+  - ../external-secrets/eso-install.yaml
+  - ../external-secrets/service-accounts.yaml
+  - ../external-secrets/external-secrets.yaml
+  
+  # Infrastructure
+  - ../statefulsets/postgres.yaml
+  - ../deployments/rabbitmq.yaml
+  - ../deployments/redis.yaml
+  
+  # Application Services
+  - ../deployments/api-gateway.yaml
+  - ../deployments/auth-service.yaml
+  - ../deployments/wallet-service.yaml
+  - ../deployments/transaction-service.yaml
+  - ../deployments/notification-service.yaml
+  - ../deployments/frontend.yaml
+  - ../deployments/cloudflare-tunnel.yaml
+  
+  # Jobs
+  - ../jobs/db-migration.yaml
+  - ../jobs/transaction-timeout.yaml
+  
+  # Ingress
+  - ../ingress/tls-ingress.yaml
+  - ../ingress/monitoring-ingress.yaml
+  - ../ingress/argocd-ingress.yaml
+  
+  # Production Policies
+  - ../policies/pod-disruption-budgets.yaml
+  - ../policies/resource-quotas.yaml
+  
+  # Autoscaling
+  - ../autoscaling/hpa-config.yaml
+  
+  # Backups
+  - ../backups/postgres-backup-cronjob.yaml
+  
+  # Security
+  - ../security/image-scanning-cronjob.yaml
+  
+  # Monitoring
+  - ../monitoring/prometheus-config.yaml
+  - ../monitoring/prometheus-deployment.yaml
+  - ../monitoring/alertmanager-deployment.yaml
+  - ../monitoring/loki-deployment.yaml
+  - ../monitoring/promtail-deployment.yaml
+
